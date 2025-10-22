@@ -2,65 +2,126 @@
 export const markdownToHtml = (markdown: string): string => {
   if (!markdown) return '';
 
-  // Nettoyer d'abord le markdown en supprimant les lignes vides avec juste un tiret
-  let lines = markdown.split('\n');
-  lines = lines.filter(line => {
-    // Supprimer les lignes qui sont juste "- " ou "-" ou "  -  " etc.
-    const trimmed = line.trim();
-    return trimmed !== '-' && trimmed !== '';
-  });
-  
-  let html = lines.join('\n');
+  let html = '';
+  const lines = markdown.split('\n');
+  let inList = false;
+  let listItems: string[] = [];
 
-  // Titres H3 (###)
-  html = html.replace(/^### (.+)$/gm, '<h3 style="color: #EF6855; font-size: 1.17em; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">$1</h3>');
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+    const trimmedLine = line.trim();
 
-  // Titres H4 (####)
-  html = html.replace(/^#### (.+)$/gm, '<h4 style="color: #F7931E; font-size: 1em; font-weight: bold; margin-top: 15px; margin-bottom: 8px;">$1</h4>');
-
-  // Gras (**texte**)
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-
-  // Italique (*texte*)
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-
-  // Checkboxes non cochées - AVANT les listes normales
-  html = html.replace(/^- \[ \] (.+)$/gm, '<p style="margin: 5px 0;">☐ $1</p>');
-
-  // Checkboxes cochées - AVANT les listes normales
-  html = html.replace(/^- \[x\] (.+)$/gm, '<p style="margin: 5px 0;">☑ $1</p>');
-
-  // Listes à puces (niveau 1) - uniquement si contenu non vide
-  html = html.replace(/^- (.+)$/gm, (match, content) => {
-    // Ne pas créer de <li> si le contenu est vide ou juste des espaces
-    const trimmedContent = content.trim();
-    if (!trimmedContent || trimmedContent === '') {
-      return ''; // Supprimer complètement
+    // Ignorer les lignes vides avec juste un tiret
+    if (trimmedLine === '-' || trimmedLine === '') {
+      if (inList && listItems.length > 0) {
+        // Fermer la liste en cours
+        html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+        listItems.forEach(item => {
+          html += `  <li style="margin-bottom: 5px;">${item}</li>\n`;
+        });
+        html += '</ul>\n';
+        inList = false;
+        listItems = [];
+      }
+      if (trimmedLine === '') {
+        html += '<br>\n';
+      }
+      continue;
     }
-    return `<li style="margin-left: 20px; margin-bottom: 5px;">${content}</li>`;
-  });
 
-  // Envelopper les <li> dans <ul> et nettoyer les <li> vides
-  html = html.replace(/(<li[^>]*>.*?<\/li>\s*)+/gs, (match) => {
-    // Supprimer les <li> vides ou avec juste des espaces
-    const cleanedMatch = match.replace(/<li[^>]*>\s*<\/li>/g, '');
-    if (!cleanedMatch.trim()) return '';
-    return `<ul style="list-style-type: disc; margin: 10px 0; padding-left: 20px;">${cleanedMatch}</ul>`;
-  });
+    // Titres H3 (###)
+    if (trimmedLine.startsWith('### ')) {
+      if (inList) {
+        html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+        listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+        html += '</ul>\n';
+        inList = false;
+        listItems = [];
+      }
+      const title = trimmedLine.substring(4);
+      html += `<h3 style="color: #EF6855; font-size: 1.2em; font-weight: bold; margin-top: 20px; margin-bottom: 10px;">${title}</h3>\n`;
+      continue;
+    }
 
-  // Nettoyer les lignes vides multiples AVANT de convertir en <br>
-  html = html.replace(/\n\n+/g, '\n\n');
-  
-  // Remplacer les retours à la ligne simples par <br>
-  html = html.replace(/\n/g, '<br>');
-  
-  // Nettoyer les <br> multiples consécutifs (max 2 consécutifs)
-  html = html.replace(/(<br>\s*){3,}/g, '<br><br>');
-  
-  // Nettoyer les <br> juste après les balises de fermeture de liste
-  html = html.replace(/<\/ul><br>/g, '</ul>');
-  html = html.replace(/<\/h3><br>/g, '</h3>');
-  html = html.replace(/<\/h4><br>/g, '</h4>');
+    // Titres H4 (####)
+    if (trimmedLine.startsWith('#### ')) {
+      if (inList) {
+        html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+        listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+        html += '</ul>\n';
+        inList = false;
+        listItems = [];
+      }
+      const title = trimmedLine.substring(5);
+      html += `<h4 style="color: #F7931E; font-size: 1.1em; font-weight: bold; margin-top: 15px; margin-bottom: 8px;">${title}</h4>\n`;
+      continue;
+    }
+
+    // Checkboxes
+    if (trimmedLine.match(/^-\s+\[\s?\]\s+(.+)$/)) {
+      if (inList) {
+        html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+        listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+        html += '</ul>\n';
+        inList = false;
+        listItems = [];
+      }
+      const content = trimmedLine.match(/^-\s+\[\s?\]\s+(.+)$/)?.[1] || '';
+      html += `<p style="margin: 5px 0;">☐ ${content}</p>\n`;
+      continue;
+    }
+
+    if (trimmedLine.match(/^-\s+\[x\]\s+(.+)$/)) {
+      if (inList) {
+        html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+        listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+        html += '</ul>\n';
+        inList = false;
+        listItems = [];
+      }
+      const content = trimmedLine.match(/^-\s+\[x\]\s+(.+)$/)?.[1] || '';
+      html += `<p style="margin: 5px 0;">☑ ${content}</p>\n`;
+      continue;
+    }
+
+    // Listes à puces
+    if (trimmedLine.match(/^-\s+(.+)$/)) {
+      const content = trimmedLine.match(/^-\s+(.+)$/)?.[1] || '';
+      if (content.trim()) {
+        inList = true;
+        // Appliquer le gras dans le contenu
+        const formattedContent = content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        listItems.push(formattedContent);
+      }
+      continue;
+    }
+
+    // Si on arrive ici et qu'on était dans une liste, la fermer
+    if (inList) {
+      html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+      listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+      html += '</ul>\n';
+      inList = false;
+      listItems = [];
+    }
+
+    // Paragraphe normal
+    if (trimmedLine) {
+      let formattedLine = trimmedLine;
+      // Gras
+      formattedLine = formattedLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Italique
+      formattedLine = formattedLine.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      html += `<p style="margin: 8px 0; line-height: 1.6;">${formattedLine}</p>\n`;
+    }
+  }
+
+  // Fermer la liste si on en a une ouverte à la fin
+  if (inList && listItems.length > 0) {
+    html += '<ul style="list-style-type: disc; margin: 10px 0; padding-left: 30px;">\n';
+    listItems.forEach(item => html += `  <li style="margin-bottom: 5px;">${item}</li>\n`);
+    html += '</ul>\n';
+  }
 
   return html;
 };

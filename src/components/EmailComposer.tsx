@@ -54,6 +54,38 @@ export function EmailComposer({
 
   const quillRef = useRef<ReactQuill>(null);
 
+  // Mettre à jour le corps de l'email quand les pièces jointes changent
+  useEffect(() => {
+    // Retirer d'abord toute section existante de pièces jointes
+    let bodyWithoutAttachments = body.replace(/<hr[^>]*>[\s\S]*?<h2[^>]*>Documents joints<\/h2>[\s\S]*?<\/ul>\s*/g, '');
+
+    if (attachments.length > 0) {
+      // Ajouter la section des pièces jointes avant "Je reste à votre disposition"
+      let attachmentsHtml = `<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+
+<h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px;">Documents joints</h2>
+<ul style="list-style-type: none; padding: 0;">
+`;
+      attachments.forEach(att => {
+        attachmentsHtml += `  <li style="margin-bottom: 8px;">📎 <a href="${att.url}" style="color: #EF6855; text-decoration: none; font-weight: 500;">${att.name}</a></li>\n`;
+      });
+      attachmentsHtml += `</ul>\n\n`;
+
+      // Trouver où insérer (juste avant "Je reste à votre disposition")
+      const dispositionText = '<p>Je reste à votre disposition';
+      const insertPosition = bodyWithoutAttachments.indexOf(dispositionText);
+
+      if (insertPosition !== -1) {
+        const newBody = bodyWithoutAttachments.slice(0, insertPosition) +
+                        attachmentsHtml +
+                        bodyWithoutAttachments.slice(insertPosition);
+        setBody(newBody);
+      }
+    } else {
+      setBody(bodyWithoutAttachments);
+    }
+  }, [attachments]);
+
   // Configuration de l'éditeur Quill
   const modules = {
     toolbar: [

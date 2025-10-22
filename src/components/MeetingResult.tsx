@@ -157,14 +157,18 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         }
         
         window.open(gmailUrl, '_blank');
-        setSuccessMessage('Gmail ouvert dans un nouvel onglet. Veuillez finaliser l\'envoi dans Gmail.');
-        setShowSuccessModal(true);
         setShowEmailComposer(false);
+
+        // Petit délai pour s'assurer que le modal s'affiche après la fermeture du composer
+        setTimeout(() => {
+          setSuccessMessage('Gmail ouvert dans un nouvel onglet. Veuillez finaliser l\'envoi dans Gmail.');
+          setShowSuccessModal(true);
+        }, 100);
       } else {
         // Envoi via client local
         const emailList = emailData.recipients.map(r => r.email).join(',');
         const ccList = emailData.ccRecipients.map(r => r.email).join(',');
-        
+
         const mailtoLink = `mailto:${emailList}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}${ccList ? `&cc=${encodeURIComponent(ccList)}` : ''}`;
 
         // Utiliser un lien temporaire au lieu de window.location.href
@@ -172,9 +176,13 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         link.href = mailtoLink;
         link.click();
 
-        setSuccessMessage('Votre client email local a été ouvert. Veuillez finaliser l\'envoi.');
-        setShowSuccessModal(true);
         setShowEmailComposer(false);
+
+        // Petit délai pour s'assurer que le modal s'affiche après la fermeture du composer
+        setTimeout(() => {
+          setSuccessMessage('Votre client email local a été ouvert. Veuillez finaliser l\'envoi.');
+          setShowSuccessModal(true);
+        }, 100);
       }
     } catch (error: any) {
       console.error('Erreur lors de l\'envoi de l\'email:', error);

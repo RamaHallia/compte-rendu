@@ -188,10 +188,8 @@ function App() {
         console.log('🔄 Hash changé:', hash);
         setView(hash as any);
       } else if (hash === 'detail') {
-        // Rediriger vers history si on est sur detail sans réunion
-        console.log('⚠️ Vue detail sans réunion, redirection vers history');
-        setView('history');
-        window.history.replaceState({ view: 'history' }, '', '#history');
+        // Ne rien faire - laisser le useEffect gérer la redirection si nécessaire
+        console.log('🔄 Hash detail détecté, conservation de la vue actuelle');
       }
     };
 

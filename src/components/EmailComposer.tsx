@@ -54,54 +54,44 @@ export function EmailComposer({
 
   const quillRef = useRef<ReactQuill>(null);
 
-  // Mettre à jour le corps de l'email quand les pièces jointes changent
-  useEffect(() => {
-    // Éviter la boucle infinie en vérifiant si une mise à jour est nécessaire
-    const hasAttachmentsSection = body.includes('Documents joints');
-    const shouldHaveAttachmentsSection = attachments.length > 0;
+  // Fonction pour construire le corps avec les pièces jointes
+  const buildBodyWithAttachments = (baseBody: string, attachmentsList: EmailAttachment[]): string => {
+    // Retirer toute section existante de pièces jointes
+    let cleanBody = baseBody.replace(/<hr[^>]*>\s*<h2[^>]*>Documents joints<\/h2>[\s\S]*?<\/ul>\s*/g, '');
 
-    // Si la section existe et qu'elle devrait exister, ou si elle n'existe pas et qu'elle ne devrait pas exister
-    if (hasAttachmentsSection === shouldHaveAttachmentsSection && hasAttachmentsSection) {
-      // Vérifier si les pièces jointes dans le body correspondent aux pièces jointes actuelles
-      const allAttachmentsPresent = attachments.every(att => body.includes(att.name));
-      if (allAttachmentsPresent) {
-        return; // Pas besoin de mise à jour
-      }
-    } else if (!hasAttachmentsSection && !shouldHaveAttachmentsSection) {
-      return; // Pas besoin de mise à jour
+    if (attachmentsList.length === 0) {
+      return cleanBody;
     }
 
-    // Retirer d'abord toute section existante de pièces jointes
-    let bodyWithoutAttachments = body.replace(/<hr[^>]*>[\s\S]*?<h2[^>]*>Documents joints<\/h2>[\s\S]*?<\/ul>\s*/g, '');
-
-    if (attachments.length > 0) {
-      // Ajouter la section des pièces jointes avant "Je reste à votre disposition"
-      let attachmentsHtml = `<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+    // Ajouter la section des pièces jointes avant "Je reste à votre disposition"
+    let attachmentsHtml = `<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
 
 <h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px;">Documents joints</h2>
 <ul style="list-style-type: none; padding: 0;">
 `;
-      attachments.forEach(att => {
-        attachmentsHtml += `  <li style="margin-bottom: 8px;">📎 <a href="${att.url}" style="color: #EF6855; text-decoration: none; font-weight: 500;">${att.name}</a></li>\n`;
-      });
-      attachmentsHtml += `</ul>\n\n`;
+    attachmentsList.forEach(att => {
+      attachmentsHtml += `  <li style="margin-bottom: 8px;">📎 <a href="${att.url}" style="color: #EF6855; text-decoration: none; font-weight: 500;">${att.name}</a></li>\n`;
+    });
+    attachmentsHtml += `</ul>\n\n`;
 
-      // Trouver où insérer (juste avant "Je reste à votre disposition")
-      const dispositionText = '<p>Je reste à votre disposition';
-      const insertPosition = bodyWithoutAttachments.indexOf(dispositionText);
+    // Trouver où insérer (juste avant "Je reste à votre disposition")
+    const dispositionText = '<p>Je reste à votre disposition';
+    const insertPosition = cleanBody.indexOf(dispositionText);
 
-      if (insertPosition !== -1) {
-        const newBody = bodyWithoutAttachments.slice(0, insertPosition) +
-                        attachmentsHtml +
-                        bodyWithoutAttachments.slice(insertPosition);
-        setBody(newBody);
-      }
-    } else {
-      if (bodyWithoutAttachments !== body) {
-        setBody(bodyWithoutAttachments);
-      }
+    if (insertPosition !== -1) {
+      return cleanBody.slice(0, insertPosition) +
+             attachmentsHtml +
+             cleanBody.slice(insertPosition);
     }
-  }, [attachments]);
+
+    return cleanBody;
+  };
+
+  // Mettre à jour le corps quand les pièces jointes changent
+  useEffect(() => {
+    const newBody = buildBodyWithAttachments(initialBody, attachments);
+    setBody(newBody);
+  }, [attachments, initialBody]);
 
   // Configuration de l'éditeur Quill
   const modules = {

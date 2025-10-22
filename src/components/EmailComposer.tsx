@@ -56,6 +56,21 @@ export function EmailComposer({
 
   // Mettre à jour le corps de l'email quand les pièces jointes changent
   useEffect(() => {
+    // Éviter la boucle infinie en vérifiant si une mise à jour est nécessaire
+    const hasAttachmentsSection = body.includes('Documents joints');
+    const shouldHaveAttachmentsSection = attachments.length > 0;
+
+    // Si la section existe et qu'elle devrait exister, ou si elle n'existe pas et qu'elle ne devrait pas exister
+    if (hasAttachmentsSection === shouldHaveAttachmentsSection && hasAttachmentsSection) {
+      // Vérifier si les pièces jointes dans le body correspondent aux pièces jointes actuelles
+      const allAttachmentsPresent = attachments.every(att => body.includes(att.name));
+      if (allAttachmentsPresent) {
+        return; // Pas besoin de mise à jour
+      }
+    } else if (!hasAttachmentsSection && !shouldHaveAttachmentsSection) {
+      return; // Pas besoin de mise à jour
+    }
+
     // Retirer d'abord toute section existante de pièces jointes
     let bodyWithoutAttachments = body.replace(/<hr[^>]*>[\s\S]*?<h2[^>]*>Documents joints<\/h2>[\s\S]*?<\/ul>\s*/g, '');
 
@@ -82,7 +97,9 @@ export function EmailComposer({
         setBody(newBody);
       }
     } else {
-      setBody(bodyWithoutAttachments);
+      if (bodyWithoutAttachments !== body) {
+        setBody(bodyWithoutAttachments);
+      }
     }
   }, [attachments]);
 

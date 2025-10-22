@@ -195,34 +195,14 @@ function App() {
       }
     };
 
-    const handleVisibilityChange = () => {
-      // Quand l'utilisateur revient sur l'onglet, vérifier si l'URL correspond à la vue
-      if (!document.hidden && user) {
-        const hash = window.location.hash.replace('#', '');
-        const currentView = view;
-        // Ne restaurer que si la vue actuelle ne correspond pas au hash
-        if (hash && ['record', 'history', 'upload', 'settings'].includes(hash) && hash !== currentView) {
-          console.log('👁️ Retour sur l\'onglet, restauration:', hash, '(était:', currentView, ')');
-          setView(hash as any);
-        } else if (hash === 'detail' && !selectedMeeting) {
-          // Rediriger vers history si on est sur detail sans réunion
-          console.log('⚠️ Vue detail sans réunion, redirection vers history');
-          setView('history');
-          window.history.replaceState({ view: 'history' }, '', '#history');
-        }
-      }
-    };
-
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('hashchange', handleHashChange);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
       window.removeEventListener('hashchange', handleHashChange);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [view, selectedMeeting]);
 
   // Rediriger automatiquement si on est sur detail sans réunion
   useEffect(() => {

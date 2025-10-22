@@ -4,6 +4,7 @@ import { supabase, EmailAttachment } from '../lib/supabase';
 import { generatePDFFromHTML } from '../services/pdfGenerator';
 import { EmailComposer } from './EmailComposer';
 import { generateEmailBody } from '../services/emailTemplates';
+import { SuccessModal } from './SuccessModal';
 
 interface MeetingResultProps {
   title: string;
@@ -28,6 +29,8 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   const [emailMethod, setEmailMethod] = useState<'gmail' | 'local' | 'smtp'>('gmail');
   const [copySuccess, setCopySuccess] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Charger les paramètres utilisateur
   useEffect(() => {
@@ -132,7 +135,8 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
           throw new Error(result.error || 'Erreur lors de l\'envoi');
         }
 
-        alert('✅ Email envoyé avec succès !');
+        setSuccessMessage('Email envoyé avec succès via SMTP !');
+        setShowSuccessModal(true);
         setShowEmailComposer(false);
       } else if (emailMethod === 'gmail') {
         // Envoi via Gmail
@@ -153,6 +157,8 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         }
         
         window.open(gmailUrl, '_blank');
+        setSuccessMessage('Gmail ouvert dans un nouvel onglet. Veuillez finaliser l\'envoi dans Gmail.');
+        setShowSuccessModal(true);
         setShowEmailComposer(false);
       } else {
         // Envoi via client local
@@ -160,7 +166,14 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         const ccList = emailData.ccRecipients.map(r => r.email).join(',');
         
         const mailtoLink = `mailto:${emailList}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}${ccList ? `&cc=${encodeURIComponent(ccList)}` : ''}`;
-        window.location.href = mailtoLink;
+
+        // Utiliser un lien temporaire au lieu de window.location.href
+        const link = document.createElement('a');
+        link.href = mailtoLink;
+        link.click();
+
+        setSuccessMessage('Votre client email local a été ouvert. Veuillez finaliser l\'envoi.');
+        setShowSuccessModal(true);
         setShowEmailComposer(false);
       }
     } catch (error: any) {
@@ -613,6 +626,13 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
           isSending={isSendingEmail}
         />
       )}
+
+      {/* Modal de succès */}
+      <SuccessModal
+        isOpen={showSuccessModal}
+        message={successMessage}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </div>
   );
 };

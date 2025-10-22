@@ -1,0 +1,104 @@
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const TRANSCRIBE_URL = import.meta.env.VITE_TRANSCRIBE_URL; // ex: https://your-fastapi-server/transcribe
+
+export const transcribeAudio = async (audioBlob: Blob, retryCount = 0, filename?: string): Promise<string> => {
+  const formData = new FormData();
+  const ext = audioBlob.type.includes('wav') ? 'wav' : audioBlob.type.includes('webm') ? 'webm' : audioBlob.type.includes('mpeg') || audioBlob.type.includes('mp3') ? 'mp3' : 'm4a';
+  const name = filename || `segment.${ext}`;
+  formData.append('audio', audioBlob, name);
+
+  try {
+    // Choisir la cible: FastAPI si disponible, sinon Supabase Edge
+    const isFastAPI = typeof TRANSCRIBE_URL === 'string' && TRANSCRIBE_URL.length > 0;
+    const endpoint = isFastAPI ? TRANSCRIBE_URL : `${SUPABASE_URL}/functions/v1/test-transcribe`;
+    const headers: Record<string,string> = {};
+    if (!isFastAPI) {
+      headers['Authorization'] = `Bearer ${SUPABASE_ANON_KEY}`;
+    }
+    const response = await fetch(endpoint, { method: 'POST', headers, body: formData });
+
+    if (!response.ok) {
+      const error = await response.json();
+      
+      // Si erreur 429 (rate limit) et qu'on n'a pas encore fait 3 tentatives
+      if (response.status === 429 && retryCount < 3) {
+        const delays = [2000, 4000, 8000]; // 2s, 4s, 8s
+        const delay = delays[retryCount];
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return transcribeAudio(audioBlob, retryCount + 1);
+      }
+      
+      // Message spécifique pour erreur 429 finale
+      if (response.status === 429) {
+        throw new Error('Limite API atteinte. Réessayez dans 1 minute.');
+      }
+      
+      throw new Error(error.error || `Transcription failed (${response.status})`);
+    }
+
+    const data = await response.json();
+    // FastAPI renvoie { transcript: ... }, Edge aussi → compatible
+    return data.transcript;
+  } catch (error) {
+    if (retryCount < 3 && error instanceof Error && error.message.includes('429')) {
+      const delays = [2000, 4000, 8000];
+      const delay = delays[retryCount];
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return transcribeAudio(audioBlob, retryCount + 1);
+    }
+    throw error;
+  }
+};
+
+export const generateSummary = async (transcript: string, retryCount = 0): Promise<{ title: string; summary: string }> => {
+  console.log('🔄 generateSummary appelé - Transcript length:', transcript.length, 'Retry:', retryCount);
+  
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/generate-summary`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ transcript }),
+      }
+    );
+
+    console.log('📊 generateSummary response status:', response.status);
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error('❌ generateSummary error:', error);
+      
+      // Si erreur 429 (rate limit) et qu'on n'a pas encore fait 3 tentatives
+      if (response.status === 429 && retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000; // Délai exponentiel: 1s, 2s, 4s
+        console.log(`⏳ Rate limit détecté, retry dans ${delay}ms`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return generateSummary(transcript, retryCount + 1);
+      }
+      
+      throw new Error(error.error || `Summary generation failed (${response.status})`);
+    }
+
+    const data = await response.json();
+    console.log('✅ generateSummary success:', { title: data.title, summaryLength: data.summary?.length });
+    return { title: data.title, summary: data.summary };
+  } catch (error) {
+    console.error('❌ generateSummary exception:', error);
+    if (retryCount < 3 && error instanceof Error && error.message.includes('429')) {
+      const delay = Math.pow(2, retryCount) * 1000;
+      console.log(`⏳ Retry dans ${delay}ms`);
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return generateSummary(transcript, retryCount + 1);
+    }
+    throw error;
+  }
+};

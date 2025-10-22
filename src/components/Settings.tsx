@@ -1,0 +1,478 @@
+import { useState, useEffect } from 'react';
+import { Save, Upload, X, Edit2, Mail } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+interface SettingsProps {
+  userId: string;
+}
+
+export const Settings = ({ userId }: SettingsProps) => {
+  const [senderEmail, setSenderEmail] = useState('');
+  const [senderName, setSenderName] = useState('');
+  const [signatureText, setSignatureText] = useState('');
+  const [signatureLogoUrl, setSignatureLogoUrl] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
+  const [hasSettings, setHasSettings] = useState(false);
+  const [emailMethod, setEmailMethod] = useState<'gmail' | 'local' | 'smtp'>('gmail');
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPassword, setSmtpPassword] = useState('');
+  const [smtpSecure, setSmtpSecure] = useState(true);
+
+  useEffect(() => {
+    loadSettings();
+  }, [userId]);
+
+  const loadSettings = async () => {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data) {
+      setSenderEmail(data.sender_email || '');
+      setSenderName(data.sender_name || '');
+      setSignatureText(data.signature_text || '');
+      setSignatureLogoUrl(data.signature_logo_url || '');
+      setLogoPreview(data.signature_logo_url || '');
+      setEmailMethod(data.email_method || 'gmail');
+      setSmtpHost(data.smtp_host || '');
+      setSmtpPort(data.smtp_port || 587);
+      setSmtpUser(data.smtp_user || '');
+      setSmtpPassword(data.smtp_password || '');
+      setSmtpSecure(data.smtp_secure !== false);
+      setHasSettings(true);
+      setIsEditing(false);
+    }
+  };
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setLogoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoFile(null);
+    setLogoPreview('');
+    setSignatureLogoUrl('');
+  };
+
+  const uploadLogo = async (): Promise<string | null> => {
+    if (!logoFile) return signatureLogoUrl;
+
+    setIsUploading(true);
+    try {
+      const fileExt = logoFile.name.split('.').pop();
+      const fileName = `${userId}/signature-logo-${Date.now()}.${fileExt}`;
+
+      if (signatureLogoUrl) {
+        const oldFileName = signatureLogoUrl.split('/').pop();
+        if (oldFileName) {
+          await supabase.storage
+            .from('logos')
+            .remove([`${userId}/${oldFileName}`]);
+        }
+      }
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('logos')
+        .upload(fileName, logoFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logos')
+        .getPublicUrl(fileName);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading logo:', error);
+      alert(`Erreur lors du téléchargement du logo: ${error.message || 'Erreur inconnue'}`);
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      let finalLogoUrl = signatureLogoUrl;
+
+      if (logoFile) {
+        const uploadedUrl = await uploadLogo();
+        if (uploadedUrl) {
+          finalLogoUrl = uploadedUrl;
+        }
+      }
+
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: userId,
+          sender_email: senderEmail,
+          sender_name: senderName,
+          signature_text: signatureText,
+          signature_logo_url: finalLogoUrl,
+          email_method: emailMethod,
+          smtp_host: emailMethod === 'smtp' ? smtpHost : null,
+          smtp_port: emailMethod === 'smtp' ? smtpPort : null,
+          smtp_user: emailMethod === 'smtp' ? smtpUser : null,
+          smtp_password: emailMethod === 'smtp' ? smtpPassword : null,
+          smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (error) throw error;
+
+      setSignatureLogoUrl(finalLogoUrl);
+      setLogoPreview(finalLogoUrl);
+      setLogoFile(null);
+      setHasSettings(true);
+      setIsEditing(false);
+    } catch (error) {
+      
+      alert('Erreur lors de la sauvegarde des paramètres');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing && hasSettings) {
+    return (
+      <div className="bg-white rounded-3xl shadow-2xl p-10 border border-orange-100">
+        <h2 className="text-3xl font-bold bg-gradient-to-r from-coral-500 to-sunset-500 bg-clip-text text-transparent mb-8">
+          Paramètres
+        </h2>
+
+        <div className="max-w-2xl">
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-green-200 mb-6 md:mb-8">
+            <div className="flex items-start gap-3 md:gap-4">
+              <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg md:text-xl font-bold text-green-900 mb-1 md:mb-2">Signature configurée avec succès</h3>
+                <p className="text-sm md:text-base text-green-700">Vos paramètres de signature ont été sauvegardés et seront utilisés dans tous vos emails de compte-rendu.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-orange-100 mb-4 md:mb-6">
+            <h3 className="text-lg md:text-xl font-bold text-cocoa-800 mb-4 md:mb-6">Récapitulatif de votre signature</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-cocoa-700 mb-1">Nom de l'expéditeur</label>
+                <p className="text-cocoa-800 font-medium">{senderName || 'Non défini'}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-cocoa-700 mb-1">Email de l'expéditeur</label>
+                <p className="text-cocoa-800 font-medium">{senderEmail || 'Non défini'}</p>
+              </div>
+
+              {signatureLogoUrl && (
+                <div>
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">Logo de signature</label>
+                  <img
+                    src={signatureLogoUrl}
+                    alt="Logo de signature"
+                    className="w-32 h-32 object-contain rounded-lg border-2 border-orange-200 bg-white p-2"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-semibold text-cocoa-700 mb-2">Informations de signature</label>
+                <div className="bg-white rounded-lg p-4 border-2 border-orange-200">
+                  <pre className="whitespace-pre-wrap text-cocoa-800 font-sans">{signatureText || 'Non défini'}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsEditing(true)}
+            className="flex items-center justify-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-coral-500 to-coral-600 text-white hover:from-coral-600 hover:to-coral-700 rounded-lg md:rounded-xl transition-all shadow-lg shadow-coral-500/30 font-semibold text-sm md:text-base w-full sm:w-auto"
+          >
+            <Edit2 className="w-4 h-4 md:w-5 md:h-5" />
+            Modifier la signature
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl p-6 md:p-10 border border-orange-100">
+      <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-coral-500 to-sunset-500 bg-clip-text text-transparent mb-6 md:mb-8">
+        Paramètres
+      </h2>
+
+      <div className="max-w-2xl">
+        <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-orange-100 mb-4 md:mb-6">
+          <h3 className="text-lg md:text-xl font-bold text-cocoa-800 mb-4 md:mb-6">Configuration Email</h3>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                Nom de l'expéditeur
+              </label>
+              <input
+                type="text"
+                value={senderName}
+                onChange={(e) => setSenderName(e.target.value)}
+                placeholder="Votre nom"
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800"
+              />
+              <p className="text-xs text-cocoa-600 mt-2">
+                Ce nom apparaîtra comme expéditeur dans les emails
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                Email de l'expéditeur
+              </label>
+              <input
+                type="email"
+                value={senderEmail}
+                onChange={(e) => setSenderEmail(e.target.value)}
+                placeholder="votre.email@exemple.com"
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800"
+              />
+              <p className="text-xs text-cocoa-600 mt-2">
+                Cette adresse sera utilisée pour l'envoi des comptes-rendus
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Choix de la méthode d'envoi email */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-100 mb-6">
+          <h3 className="text-xl font-bold text-cocoa-800 mb-4">Méthode d'envoi email</h3>
+          <p className="text-sm text-cocoa-600 mb-4">
+            Choisissez comment vous souhaitez envoyer vos emails de compte-rendu
+          </p>
+          
+          <div className="space-y-3">
+            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+              <input
+                type="radio"
+                name="emailMethod"
+                value="gmail"
+                checked={emailMethod === 'gmail'}
+                onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
+                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#EA4335"/>
+                  </svg>
+                  <span className="font-semibold text-cocoa-800">Gmail (dans le navigateur)</span>
+                </div>
+                <p className="text-sm text-cocoa-600 mt-1">
+                  Ouvre Gmail dans votre navigateur pour envoyer l'email
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+              <input
+                type="radio"
+                name="emailMethod"
+                value="local"
+                checked={emailMethod === 'local'}
+                onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
+                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-blue-600" />
+                  <span className="font-semibold text-cocoa-800">Client email local</span>
+                </div>
+                <p className="text-sm text-cocoa-600 mt-1">
+                  Ouvre votre client email par défaut (Outlook, Thunderbird, etc.)
+                </p>
+              </div>
+            </label>
+
+            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+              <input
+                type="radio"
+                name="emailMethod"
+                value="smtp"
+                checked={emailMethod === 'smtp'}
+                onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
+                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                  </svg>
+                  <span className="font-semibold text-cocoa-800">Serveur SMTP personnalisé</span>
+                </div>
+                <p className="text-sm text-cocoa-600 mt-1">
+                  Configurez votre propre serveur SMTP (Gmail, Outlook, serveur dédié...)
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Formulaire de configuration SMTP */}
+          {emailMethod === 'smtp' && (
+            <div className="mt-4 p-5 bg-white rounded-xl border-2 border-blue-200 space-y-4">
+              <h4 className="font-bold text-cocoa-800 mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+                Configuration SMTP
+              </h4>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                    Serveur SMTP *
+                  </label>
+                  <input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="smtp.gmail.com"
+                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                  />
+                  <p className="text-xs text-cocoa-500 mt-1">Ex: smtp.gmail.com, smtp.office365.com</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                    Port SMTP *
+                  </label>
+                  <input
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(parseInt(e.target.value) || 587)}
+                    placeholder="587"
+                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                  />
+                  <p className="text-xs text-cocoa-500 mt-1">587 (TLS) ou 465 (SSL)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                    Email / Utilisateur *
+                  </label>
+                  <input
+                    type="email"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    placeholder="votre@email.com"
+                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                    Mot de passe *
+                  </label>
+                  <input
+                    type="password"
+                    value={smtpPassword}
+                    onChange={(e) => setSmtpPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                  />
+                  <p className="text-xs text-cocoa-500 mt-1">
+                    Pour Gmail: utilisez un mot de passe d'application
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="smtp-secure"
+                  checked={smtpSecure}
+                  onChange={(e) => setSmtpSecure(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="smtp-secure" className="text-sm text-cocoa-700 cursor-pointer">
+                  Utiliser une connexion sécurisée (TLS/SSL) - Recommandé
+                </label>
+              </div>
+
+              <div className="p-3 bg-amber-50 border-2 border-amber-200 rounded-lg">
+                <p className="text-xs text-amber-800">
+                  <strong>⚠️ Important:</strong> Pour Gmail, vous devez créer un "Mot de passe d'application" 
+                  dans les paramètres de sécurité de votre compte Google. Les mots de passe normaux ne fonctionnent pas.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 border-2 border-orange-100 mb-6">
+          <h3 className="text-xl font-bold text-cocoa-800 mb-6">Signature Email</h3>
+          <p className="text-sm text-cocoa-600 mb-4">
+            Cette signature sera ajoutée automatiquement en bas de tous les emails de compte-rendu
+          </p>
+
+          <div className="space-y-4">
+
+            <div>
+              <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                Informations du destinataire
+              </label>
+              <textarea
+                value={signatureText}
+                onChange={(e) => setSignatureText(e.target.value)}
+                placeholder="Jean Dupont&#10;Directeur Commercial&#10;Mon Entreprise SA&#10;Tel: +33 1 23 45 67 89&#10;www.exemple.com"
+                rows={6}
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800 resize-none"
+              />
+              <p className="text-xs text-cocoa-600 mt-2">
+                Saisissez toutes les informations que vous souhaitez voir apparaître dans votre signature (nom, poste, entreprise, téléphone, site web, etc.)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={isSaving || isUploading}
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-coral-500 to-coral-600 text-white hover:from-coral-600 hover:to-coral-700 rounded-xl transition-all shadow-lg shadow-coral-500/30 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Save className="w-5 h-5" />
+          {isUploading ? 'Téléchargement...' : isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
+        </button>
+      </div>
+    </div>
+  );
+};

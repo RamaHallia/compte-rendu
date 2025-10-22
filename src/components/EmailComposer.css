@@ -1,0 +1,58 @@
+/* Styles personnalisés pour l'éditeur d'email */
+
+/* Assurer que l'éditeur Quill a un scroll correct */
+.email-composer-quill .ql-container {
+  height: 340px !important;
+  overflow-y: auto !important;
+}
+
+.email-composer-quill .ql-editor {
+  min-height: 340px;
+  padding: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Barre de défilement personnalisée */
+.email-composer-quill .ql-editor::-webkit-scrollbar {
+  width: 8px;
+}
+
+.email-composer-quill .ql-editor::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.email-composer-quill .ql-editor::-webkit-scrollbar-thumb {
+  background: #EF6855;
+  border-radius: 4px;
+}
+
+.email-composer-quill .ql-editor::-webkit-scrollbar-thumb:hover {
+  background: #E5503F;
+}
+
+/* Styles pour les boutons de la toolbar */
+.email-composer-quill .ql-toolbar button:hover,
+.email-composer-quill .ql-toolbar button.ql-active {
+  color: #EF6855 !important;
+}
+
+.email-composer-quill .ql-toolbar .ql-stroke {
+  stroke: #666 !important;
+}
+
+.email-composer-quill .ql-toolbar button:hover .ql-stroke,
+.email-composer-quill .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #EF6855 !important;
+}
+
+.email-composer-quill .ql-toolbar .ql-fill {
+  fill: #666 !important;
+}
+
+.email-composer-quill .ql-toolbar button:hover .ql-fill,
+.email-composer-quill .ql-toolbar button.ql-active .ql-fill {
+  fill: #EF6855 !important;
+}
+

@@ -1,9 +1,9 @@
-import { X, Plus, Trash2, Send, Paperclip } from 'lucide-react';
+import { X, Plus, Trash2, Send, Paperclip, Upload, Download } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import './EmailComposer.css';
-import { EmailAttachment } from '../lib/supabase';
+import { EmailAttachment, supabase } from '../lib/supabase';
 
 interface Recipient {
   name: string;
@@ -49,6 +49,8 @@ export function EmailComposer({
   const [showCC, setShowCC] = useState(initialCcRecipients.length > 0);
   const [showBCC, setShowBCC] = useState(initialBccRecipients.length > 0);
   const [attachments, setAttachments] = useState<EmailAttachment[]>(initialAttachments);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const quillRef = useRef<ReactQuill>(null);
 
@@ -118,6 +120,50 @@ export function EmailComposer({
     setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Vérifier la taille du fichier (limite à 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('❌ Le fichier est trop volumineux. Taille maximale: 10 MB');
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `email-attachments/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('meeting-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('meeting-attachments')
+        .getPublicUrl(fileName);
+
+      const newAttachment: EmailAttachment = {
+        name: file.name,
+        url: urlData.publicUrl,
+        size: file.size,
+        type: file.type
+      };
+
+      setAttachments(prev => [...prev, newAttachment]);
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      alert('❌ Erreur lors du téléchargement du fichier');
+    } finally {
+      setIsUploadingAttachment(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   // Conversion HTML vers texte brut
   const htmlToPlainText = (html: string): string => {
     const tmp = document.createElement('div');
@@ -154,24 +200,29 @@ export function EmailComposer({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-[#EF6855] to-[#E5503F] text-white p-6 rounded-t-2xl flex justify-between items-center z-10">
-          <h2 className="text-2xl font-bold flex items-center gap-3">
-            <Send className="w-6 h-6" />
-            Nouveau message
-          </h2>
+        <div className="sticky top-0 bg-gradient-to-r from-[#EF6855] via-[#E5503F] to-[#D64838] text-white p-6 flex justify-between items-center z-10 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <Send className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold">Nouveau message</h2>
+              <p className="text-sm text-white/80">Composez et envoyez votre email</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
             disabled={isSending}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-white/20 rounded-xl transition-all disabled:opacity-50"
           >
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
           {/* Destinataires */}
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -364,42 +415,79 @@ export function EmailComposer({
           </div>
 
           {/* Pièces jointes */}
-          {attachments.length > 0 && (
-            <div className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-              <div className="flex items-center gap-2 mb-3">
-                <Paperclip className="w-5 h-5 text-[#EF6855] hover:text-[#E5503F]600" />
+          <div className="border border-gray-300 rounded-lg p-4 bg-gradient-to-br from-orange-50 to-red-50">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Paperclip className="w-5 h-5 text-[#EF6855]" />
                 <span className="text-sm font-semibold text-gray-700">
-                  Pièces jointes ({attachments.length})
+                  Pièces jointes {attachments.length > 0 && `(${attachments.length})`}
                 </span>
               </div>
+              <label className="cursor-pointer">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={isSending || isUploadingAttachment}
+                />
+                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#EF6855] to-[#E5503F] text-white rounded-lg hover:from-[#E5503F] hover:to-[#D64838] transition-all font-semibold text-sm shadow-md hover:shadow-lg disabled:opacity-50">
+                  {isUploadingAttachment ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Upload...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Ajouter un fichier</span>
+                    </>
+                  )}
+                </div>
+              </label>
+            </div>
+            {attachments.length > 0 ? (
               <div className="space-y-2">
                 {attachments.map((attachment, index) => (
-                  <div key={index} className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
-                    <a
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[#EF6855] hover:text-[#E5503F] hover:underline flex-1 truncate"
-                    >
-                      {attachment.name}
-                    </a>
-                    <button
-                      onClick={() => removeAttachment(index)}
-                      disabled={isSending}
-                      className="ml-3 p-1 text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  <div key={index} className="attachment-item flex items-center justify-between bg-white p-3 rounded-lg border-2 border-orange-200 shadow-sm hover:shadow-md transition-all">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Paperclip className="w-4 h-4 text-[#EF6855] flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{attachment.name}</p>
+                        <p className="text-xs text-gray-500">{(attachment.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-2 text-[#EF6855] hover:bg-orange-100 rounded-lg transition-colors"
+                        title="Télécharger"
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                      <button
+                        onClick={() => removeAttachment(index)}
+                        disabled={isSending}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-gray-500 italic text-center py-2">Aucune pièce jointe pour le moment</p>
+            )}
+          </div>
 
           {/* Éditeur de contenu */}
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-700">Message:</label>
-            <div className="border border-gray-300 rounded-lg overflow-hidden bg-white email-composer-quill" style={{ height: '400px' }}>
+            <div className="border-2 border-gray-300 rounded-xl overflow-hidden bg-white email-composer-quill shadow-sm" style={{ height: '400px' }}>
               <ReactQuill
                 ref={quillRef}
                 theme="snow"
@@ -416,18 +504,26 @@ export function EmailComposer({
         </div>
 
         {/* Footer avec boutons d'action */}
-        <div className="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-2xl border-t border-gray-200 flex justify-between items-center">
-          <button
-            onClick={onClose}
-            disabled={isSending}
-            className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors disabled:opacity-50"
-          >
-            Annuler
-          </button>
+        <div className="sticky bottom-0 bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-5 border-t-2 border-gray-200 flex justify-between items-center shadow-inner">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              disabled={isSending}
+              className="px-6 py-2.5 text-gray-700 bg-white hover:bg-gray-50 border-2 border-gray-300 rounded-xl font-semibold transition-all disabled:opacity-50 shadow-sm hover:shadow"
+            >
+              Annuler
+            </button>
+            {attachments.length > 0 && (
+              <span className="text-sm text-gray-600 flex items-center gap-2">
+                <Paperclip className="w-4 h-4" />
+                {attachments.length} fichier{attachments.length > 1 ? 's' : ''} joint{attachments.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
           <button
             onClick={handleSend}
             disabled={isSending}
-            className="px-8 py-3 bg-gradient-to-r from-[#EF6855] to-[#E5503F] text-white rounded-xl font-semibold hover:from-[#E5503F] hover:to-[#D64838] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-8 py-3 bg-gradient-to-r from-[#EF6855] via-[#E5503F] to-[#D64838] text-white rounded-xl font-bold hover:from-[#E5503F] hover:via-[#D64838] hover:to-[#C73E2E] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transform hover:scale-105"
           >
             {isSending ? (
               <>
@@ -437,7 +533,7 @@ export function EmailComposer({
             ) : (
               <>
                 <Send className="w-5 h-5" />
-                Envoyer
+                Envoyer le message
               </>
             )}
           </button>

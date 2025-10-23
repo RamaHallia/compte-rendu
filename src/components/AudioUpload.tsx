@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Upload, FileAudio, X, Loader } from 'lucide-react';
-import { transcribeAudio, generateSummary } from '../services/transcription';
+import { transcribeLongAudio, generateSummary } from '../services/transcription';
 import { supabase } from '../lib/supabase';
 
 interface AudioUploadProps {
@@ -16,25 +16,6 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
   const [notes, setNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
-
-  // Fonction pour diviser l'audio en chunks si > 25MB
-  const splitAudioFile = async (file: File): Promise<Blob[]> => {
-    const chunkSize = 20 * 1024 * 1024; // 20 MB par chunk pour sécurité
-    const chunks: Blob[] = [];
-    let offset = 0;
-
-    while (offset < file.size) {
-      const chunk = file.slice(offset, offset + chunkSize);
-      chunks.push(chunk);
-      offset += chunkSize;
-    }
-
-    return chunks;
-  };
-
-  // Fonction pour compresser l'audio via FFmpeg.wasm (optionnel)
-  // Pour l'instant on va juste diviser le fichier
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -101,22 +82,11 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
 
       if (createError) throw createError;
 
-      // 3) Transcrire (diviser si > 25MB)
+      // 3) Transcrire avec l'endpoint /transcribe_long
       setProgress('Transcription en cours...');
-      let fullTranscript = '';
-
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setProgress(`Fichier volumineux (${(selectedFile.size / 1024 / 1024).toFixed(1)} MB). Division en chunks...`);
-        const chunks = await splitAudioFile(selectedFile);
-        
-        for (let i = 0; i < chunks.length; i++) {
-          setProgress(`Transcription du segment ${i + 1}/${chunks.length}...`);
-          const chunkTranscript = await transcribeAudio(chunks[i] as Blob);
-          fullTranscript += chunkTranscript + ' ';
-        }
-      } else {
-        fullTranscript = await transcribeAudio(selectedFile);
-      }
+      const fullTranscript = await transcribeLongAudio(selectedFile, (msg) => {
+        setProgress(msg);
+      });
 
       // 4) Générer le résumé
       setProgress('Génération du résumé IA...');
@@ -182,11 +152,6 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
                   <p className="text-sm text-cocoa-600">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
-                  {selectedFile.size > MAX_FILE_SIZE && (
-                    <p className="text-xs text-orange-600 mt-2">
-                      ⚠️ Fichier volumineux - sera divisé en plusieurs segments
-                    </p>
-                  )}
                 </div>
                 <button
                   type="button"
@@ -209,7 +174,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
                     Cliquez pour sélectionner un fichier audio
                   </p>
                   <p className="text-sm text-cocoa-600 mt-1">
-                    MP3, WAV, M4A, WebM, etc. (Max 25 MB recommandé)
+                    MP3, WAV, M4A, WebM, OGG, FLAC, etc.
                   </p>
                 </div>
               </>

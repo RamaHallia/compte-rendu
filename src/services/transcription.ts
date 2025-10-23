@@ -1,6 +1,7 @@
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const TRANSCRIBE_URL = import.meta.env.VITE_TRANSCRIBE_URL; // ex: https://your-fastapi-server/transcribe
+const TRANSCRIBE_URL = import.meta.env.VITE_TRANSCRIBE_URL;
+const TRANSCRIBE_LONG_URL = import.meta.env.VITE_TRANSCRIBE_LONG_URL;
 
 export const transcribeAudio = async (audioBlob: Blob, retryCount = 0, filename?: string): Promise<string> => {
   const formData = new FormData();
@@ -20,21 +21,21 @@ export const transcribeAudio = async (audioBlob: Blob, retryCount = 0, filename?
 
     if (!response.ok) {
       const error = await response.json();
-      
+
       // Si erreur 429 (rate limit) et qu'on n'a pas encore fait 3 tentatives
       if (response.status === 429 && retryCount < 3) {
         const delays = [2000, 4000, 8000]; // 2s, 4s, 8s
         const delay = delays[retryCount];
-        
+
         await new Promise(resolve => setTimeout(resolve, delay));
         return transcribeAudio(audioBlob, retryCount + 1);
       }
-      
+
       // Message spécifique pour erreur 429 finale
       if (response.status === 429) {
         throw new Error('Limite API atteinte. Réessayez dans 1 minute.');
       }
-      
+
       throw new Error(error.error || `Transcription failed (${response.status})`);
     }
 
@@ -45,10 +46,55 @@ export const transcribeAudio = async (audioBlob: Blob, retryCount = 0, filename?
     if (retryCount < 3 && error instanceof Error && error.message.includes('429')) {
       const delays = [2000, 4000, 8000];
       const delay = delays[retryCount];
-      
+
       await new Promise(resolve => setTimeout(resolve, delay));
       return transcribeAudio(audioBlob, retryCount + 1);
     }
+    throw error;
+  }
+};
+
+export const transcribeLongAudio = async (
+  audioFile: File,
+  onProgress?: (message: string) => void
+): Promise<string> => {
+  const baseUrl = TRANSCRIBE_LONG_URL || TRANSCRIBE_URL?.replace('/transcribe', '/transcribe_long');
+
+  if (!baseUrl) {
+    throw new Error('URL de transcription non configurée');
+  }
+
+  const formData = new FormData();
+  formData.append('audio', audioFile, audioFile.name);
+
+  try {
+    if (onProgress) {
+      onProgress('Envoi du fichier au serveur...');
+    }
+
+    const response = await fetch(baseUrl, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || `Transcription failed (${response.status})`);
+    }
+
+    if (onProgress) {
+      onProgress('Traitement et transcription en cours...');
+    }
+
+    const data = await response.json();
+
+    if (onProgress) {
+      onProgress(`Transcription terminée (${data.segments_count} segments traités)`);
+    }
+
+    return data.transcript || '';
+  } catch (error) {
+    console.error('Erreur transcription longue:', error);
     throw error;
   }
 };

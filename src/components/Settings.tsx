@@ -31,7 +31,7 @@ export const Settings = ({ userId }: SettingsProps) => {
   const loadSettings = async () => {
     const { data, error } = await supabase
       .from('user_settings')
-      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure')
+      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_password_encrypted, smtp_secure')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -45,7 +45,14 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSmtpHost(data.smtp_host || '');
       setSmtpPort(data.smtp_port || 587);
       setSmtpUser(data.smtp_user || '');
-      setSmtpPassword(data.smtp_password || '');
+      // Gérer les deux cas : chiffré (nouveau) ou en clair (ancien)
+      if (data.smtp_password_encrypted) {
+        // Le mot de passe est chiffré, on affiche un placeholder
+        setSmtpPassword('••••••••');
+      } else {
+        // Ancien système, le mot de passe est en clair
+        setSmtpPassword(data.smtp_password || '');
+      }
       setSmtpSecure(data.smtp_secure !== false);
       setHasSettings(true);
       setIsEditing(false);
@@ -125,22 +132,47 @@ export const Settings = ({ userId }: SettingsProps) => {
         }
       }
 
+      // Préparer les données de base
+      const settingsData: any = {
+        user_id: userId,
+        sender_email: senderEmail,
+        sender_name: senderName,
+        signature_text: signatureText,
+        signature_logo_url: finalLogoUrl,
+        email_method: emailMethod,
+        smtp_host: emailMethod === 'smtp' ? smtpHost : null,
+        smtp_port: emailMethod === 'smtp' ? smtpPort : null,
+        smtp_user: emailMethod === 'smtp' ? smtpUser : null,
+        smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Gérer le mot de passe SMTP (chiffré ou non selon si la migration est appliquée)
+      if (emailMethod === 'smtp' && smtpPassword && smtpPassword !== '••••••••') {
+        // Vérifier si la fonction de chiffrement existe
+        const { data: encryptedPassword, error: encryptError } = await supabase.rpc('encrypt_smtp_password', {
+          password: smtpPassword,
+          user_id: userId
+        });
+
+        if (encryptError) {
+          // Si la fonction n'existe pas, utiliser l'ancienne méthode (non chiffré)
+          if (encryptError.message?.includes('function') || encryptError.code === '42883') {
+            console.warn('Fonction de chiffrement non disponible, utilisation de smtp_password');
+            settingsData.smtp_password = smtpPassword;
+          } else {
+            console.error('Erreur de chiffrement:', encryptError);
+            throw new Error('Erreur lors du chiffrement du mot de passe');
+          }
+        } else {
+          // Si le chiffrement a réussi, utiliser la colonne chiffrée
+          settingsData.smtp_password_encrypted = encryptedPassword;
+        }
+      }
+
       const { error } = await supabase
         .from('user_settings')
-        .upsert({
-          user_id: userId,
-          sender_email: senderEmail,
-          sender_name: senderName,
-          signature_text: signatureText,
-          signature_logo_url: finalLogoUrl,
-          email_method: emailMethod,
-          smtp_host: emailMethod === 'smtp' ? smtpHost : null,
-          smtp_port: emailMethod === 'smtp' ? smtpPort : null,
-          smtp_user: emailMethod === 'smtp' ? smtpUser : null,
-          smtp_password: emailMethod === 'smtp' ? smtpPassword : null,
-          smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
-          updated_at: new Date().toISOString(),
-        }, {
+        .upsert(settingsData, {
           onConflict: 'user_id'
         });
 

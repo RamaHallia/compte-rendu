@@ -113,37 +113,10 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
     }
 
     try {
-      // 1) Upload de l'audio original dans Supabase Storage
-      const uploadProgress = 'Téléversement du fichier audio...';
-      setProgress(uploadProgress);
-      await updateTask(taskId, { progress: uploadProgress, progress_percent: 10 });
-      const now = new Date();
-      const datePart = now.toISOString().slice(0, 10);
-      const timePart = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
-      const safeTitle = (meetingTitle || 'upload')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 50) || 'upload';
-      const filePath = `${userId}/${datePart}/${safeTitle}_${timePart}_upload.${selectedFile.name.split('.').pop()}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('Compte-rendu')
-        .upload(filePath, selectedFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: pub } = supabase.storage
-        .from('Compte-rendu')
-        .getPublicUrl(filePath);
-      const audioUrl = pub.publicUrl;
-
-      // 2) Créer une réunion minimale
-      const createProgress = 'Création de la réunion...';
+      // 1) Créer une réunion minimale
+      const createProgress = 'Préparation de la transcription...';
       setProgress(createProgress);
-      await updateTask(taskId, { progress: createProgress, progress_percent: 20 });
+      await updateTask(taskId, { progress: createProgress, progress_percent: 10 });
       const provisionalTitle = meetingTitle || `Upload du ${new Date().toLocaleDateString('fr-FR')}`;
 
       console.log('📊 Création réunion avec durée:', audioDuration, 'secondes');
@@ -158,7 +131,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
           user_id: userId,
           notes: notes || null,
           suggestions: [],
-          audio_url: audioUrl,
+          audio_url: null,
         })
         .select()
         .maybeSingle();
@@ -169,9 +142,9 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
 
       console.log('✅ Réunion créée avec ID:', meeting.id);
 
-      // 3) Transcrire avec l'endpoint /transcribe_long
+      // 2) Transcrire directement - pas besoin de stocker l'audio
       setProgress('Envoi au serveur de transcription...');
-      await updateTask(taskId, { progress: 'Envoi au serveur de transcription...', meeting_id: meeting.id, progress_percent: 30 });
+      await updateTask(taskId, { progress: 'Envoi au serveur de transcription...', meeting_id: meeting.id, progress_percent: 20 });
       const fullTranscript = await transcribeLongAudio(selectedFile, async (msg) => {
         setProgress(msg);
         await updateTask(taskId, { progress: msg, progress_percent: 60 });

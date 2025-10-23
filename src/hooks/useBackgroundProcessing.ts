@@ -7,6 +7,7 @@ export interface BackgroundTask {
   type: 'upload_transcription';
   status: 'processing' | 'completed' | 'error';
   progress: string;
+  progress_percent?: number;
   meeting_id?: string;
   error?: string;
   created_at: string;

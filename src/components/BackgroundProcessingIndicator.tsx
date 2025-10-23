@@ -61,8 +61,24 @@ export const BackgroundProcessingIndicator = ({
           <p className="text-xs text-cocoa-600 mb-3 px-1">
             {activeTask.progress}
           </p>
-          <div className="h-2 bg-orange-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-coral-500 to-sunset-500 rounded-full transition-all duration-500 animate-pulse" style={{ width: '65%' }}></div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-cocoa-500 font-medium">Progression</span>
+              <span className="text-coral-600 font-bold">{activeTask.progress_percent || 0}%</span>
+            </div>
+            <div className="h-2.5 bg-orange-100 rounded-full overflow-hidden shadow-inner">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${activeTask.progress_percent || 0}%`,
+                  background: activeTask.progress_percent && activeTask.progress_percent >= 80
+                    ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)'
+                    : activeTask.progress_percent && activeTask.progress_percent >= 50
+                    ? 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)'
+                    : 'linear-gradient(90deg, #f97316 0%, #ea580c 100%)'
+                }}
+              ></div>
+            </div>
           </div>
         </div>
       )}

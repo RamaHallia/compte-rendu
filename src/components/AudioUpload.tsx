@@ -151,7 +151,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       });
 
       const fullTranscript = transcriptionResult.transcript;
-      const actualDuration = transcriptionResult.duration_seconds || audioDuration;
+      const actualDuration = Math.round(transcriptionResult.duration_seconds || audioDuration);
 
       // 4) Générer le résumé
       const summaryProgress = 'Génération du résumé IA...';

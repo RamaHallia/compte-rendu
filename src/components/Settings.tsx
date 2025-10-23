@@ -218,12 +218,13 @@ export const Settings = ({ userId }: SettingsProps) => {
 
   if (!isEditing && hasSettings) {
     return (
-      <div className="bg-white rounded-3xl shadow-2xl p-10 border border-orange-100">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-coral-500 to-sunset-500 bg-clip-text text-transparent mb-8">
-          Paramètres
-        </h2>
+      <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <h2 className="text-3xl font-bold text-cocoa-900 mb-8">
+            Paramètres
+          </h2>
 
-        <div className="max-w-2xl">
+        <div className="space-y-6">
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-green-200 mb-6 md:mb-8">
             <div className="flex items-start gap-3 md:gap-4">
               <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center">
@@ -238,8 +239,8 @@ export const Settings = ({ userId }: SettingsProps) => {
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-orange-100 mb-4 md:mb-6">
-            <h3 className="text-lg md:text-xl font-bold text-cocoa-800 mb-4 md:mb-6">Récapitulatif de votre signature</h3>
+          <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
+            <h3 className="text-xl font-bold text-cocoa-900 mb-6">Récapitulatif de votre signature</h3>
 
             <div className="space-y-4">
               <div>
@@ -265,7 +266,7 @@ export const Settings = ({ userId }: SettingsProps) => {
 
               <div>
                 <label className="block text-sm font-semibold text-cocoa-700 mb-2">Informations de signature</label>
-                <div className="bg-white rounded-lg p-4 border-2 border-orange-200">
+                <div className="bg-gradient-to-br from-peach-50 to-coral-50 rounded-lg p-4 border-2 border-coral-200">
                   <pre className="whitespace-pre-wrap text-cocoa-800 font-sans">{signatureText || 'Non défini'}</pre>
                 </div>
               </div>
@@ -274,27 +275,29 @@ export const Settings = ({ userId }: SettingsProps) => {
 
           <button
             onClick={() => setIsEditing(true)}
-            className="flex items-center justify-center gap-2 px-4 md:px-6 py-2 md:py-3 bg-gradient-to-r from-coral-500 to-coral-600 text-white hover:from-coral-600 hover:to-coral-700 rounded-lg md:rounded-xl transition-all shadow-lg shadow-coral-500/30 font-semibold text-sm md:text-base w-full sm:w-auto"
+            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white hover:from-coral-600 hover:to-sunset-600 rounded-xl transition-all shadow-lg font-semibold"
           >
-            <Edit2 className="w-4 h-4 md:w-5 md:h-5" />
+            <Edit2 className="w-5 h-5" />
             Modifier la signature
           </button>
+        </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl md:rounded-3xl shadow-2xl p-6 md:p-10 border border-orange-100">
-      <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-coral-500 to-sunset-500 bg-clip-text text-transparent mb-6 md:mb-8">
-        Paramètres
-      </h2>
+    <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-4 md:p-8">
+      <div className="max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold text-cocoa-900 mb-8">
+          Paramètres
+        </h2>
 
-      <div className="max-w-4xl">
+      <div className="space-y-6">
         {/* Section Abonnement */}
-        <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 rounded-2xl p-6 border-2 border-purple-200 mb-8">
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
           <h3 className="text-2xl font-bold text-cocoa-900 mb-4 flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-purple-600" />
+            <CreditCard className="w-6 h-6 text-coral-600" />
             Gérer mon abonnement
           </h3>
           <p className="text-sm text-cocoa-600 mb-6">
@@ -417,7 +420,7 @@ export const Settings = ({ userId }: SettingsProps) => {
           {subscription && subscription.plan_type !== selectedPlan && (
             <button
               onClick={handleChangePlan}
-              className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
+              className="w-full px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white rounded-xl font-semibold hover:from-coral-600 hover:to-sunset-600 transition-all shadow-lg"
             >
               Changer pour la formule {selectedPlan === 'starter' ? 'Starter (29€)' : 'Illimitée (39€)'}
             </button>
@@ -426,7 +429,7 @@ export const Settings = ({ userId }: SettingsProps) => {
           {!subscription && (
             <button
               onClick={handleChangePlan}
-              className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
+              className="w-full px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white rounded-xl font-semibold hover:from-coral-600 hover:to-sunset-600 transition-all shadow-lg"
             >
               Activer la formule {selectedPlan === 'starter' ? 'Starter (29€)' : 'Illimitée (39€)'}
             </button>
@@ -437,8 +440,8 @@ export const Settings = ({ userId }: SettingsProps) => {
           </p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-orange-100 mb-4 md:mb-6">
-          <h3 className="text-lg md:text-xl font-bold text-cocoa-800 mb-4 md:mb-6">Configuration Email</h3>
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
+          <h3 className="text-xl font-bold text-cocoa-900 mb-6">Configuration Email</h3>
 
           <div className="space-y-4">
             <div>
@@ -450,7 +453,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                 value={senderName}
                 onChange={(e) => setSenderName(e.target.value)}
                 placeholder="Votre nom"
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800"
+                className="w-full px-4 py-3 border-2 border-coral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800 bg-white"
               />
               <p className="text-xs text-cocoa-600 mt-2">
                 Ce nom apparaîtra comme expéditeur dans les emails
@@ -466,7 +469,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                 value={senderEmail}
                 onChange={(e) => setSenderEmail(e.target.value)}
                 placeholder="votre.email@exemple.com"
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800"
+                className="w-full px-4 py-3 border-2 border-coral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800 bg-white"
               />
               <p className="text-xs text-cocoa-600 mt-2">
                 Cette adresse sera utilisée pour l'envoi des comptes-rendus
@@ -476,21 +479,21 @@ export const Settings = ({ userId }: SettingsProps) => {
         </div>
 
         {/* Choix de la méthode d'envoi email */}
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-100 mb-6">
-          <h3 className="text-xl font-bold text-cocoa-800 mb-4">Méthode d'envoi email</h3>
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
+          <h3 className="text-xl font-bold text-cocoa-900 mb-4">Méthode d'envoi email</h3>
           <p className="text-sm text-cocoa-600 mb-4">
             Choisissez comment vous souhaitez envoyer vos emails de compte-rendu
           </p>
           
           <div className="space-y-3">
-            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+            <label className="flex items-start gap-3 p-4 bg-gradient-to-br from-peach-50 to-coral-50 rounded-xl border-2 border-coral-200 cursor-pointer hover:border-coral-300 transition-all">
               <input
                 type="radio"
                 name="emailMethod"
                 value="gmail"
                 checked={emailMethod === 'gmail'}
                 onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
-                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="mt-1 w-5 h-5 text-coral-600 border-gray-300 focus:ring-coral-500"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -505,14 +508,14 @@ export const Settings = ({ userId }: SettingsProps) => {
               </div>
             </label>
 
-            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+            <label className="flex items-start gap-3 p-4 bg-gradient-to-br from-peach-50 to-coral-50 rounded-xl border-2 border-coral-200 cursor-pointer hover:border-coral-300 transition-all">
               <input
                 type="radio"
                 name="emailMethod"
                 value="local"
                 checked={emailMethod === 'local'}
                 onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
-                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="mt-1 w-5 h-5 text-coral-600 border-gray-300 focus:ring-coral-500"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -525,14 +528,14 @@ export const Settings = ({ userId }: SettingsProps) => {
               </div>
             </label>
 
-            <label className="flex items-start gap-3 p-4 bg-white rounded-xl border-2 border-blue-200 cursor-pointer hover:bg-blue-50 transition-colors">
+            <label className="flex items-start gap-3 p-4 bg-gradient-to-br from-peach-50 to-coral-50 rounded-xl border-2 border-coral-200 cursor-pointer hover:border-coral-300 transition-all">
               <input
                 type="radio"
                 name="emailMethod"
                 value="smtp"
                 checked={emailMethod === 'smtp'}
                 onChange={(e) => setEmailMethod(e.target.value as 'gmail' | 'local' | 'smtp')}
-                className="mt-1 w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                className="mt-1 w-5 h-5 text-coral-600 border-gray-300 focus:ring-coral-500"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -551,9 +554,9 @@ export const Settings = ({ userId }: SettingsProps) => {
 
           {/* Formulaire de configuration SMTP */}
           {emailMethod === 'smtp' && (
-            <div className="mt-4 p-5 bg-white rounded-xl border-2 border-blue-200 space-y-4">
-              <h4 className="font-bold text-cocoa-800 mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+            <div className="mt-4 p-5 bg-gradient-to-br from-peach-50 to-coral-50 rounded-xl border-2 border-coral-200 space-y-4">
+              <h4 className="font-bold text-cocoa-900 mb-3 flex items-center gap-2">
+                <svg className="w-5 h-5 text-coral-600" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
                 </svg>
                 Configuration SMTP
@@ -569,7 +572,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                     value={smtpHost}
                     onChange={(e) => setSmtpHost(e.target.value)}
                     placeholder="smtp.gmail.com"
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                    className="w-full px-4 py-2 border-2 border-coral-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500 bg-white text-cocoa-800"
                   />
                   <p className="text-xs text-cocoa-500 mt-1">Ex: smtp.gmail.com, smtp.office365.com</p>
                 </div>
@@ -583,7 +586,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                     value={smtpPort}
                     onChange={(e) => setSmtpPort(parseInt(e.target.value) || 587)}
                     placeholder="587"
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                    className="w-full px-4 py-2 border-2 border-coral-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500 bg-white text-cocoa-800"
                   />
                   <p className="text-xs text-cocoa-500 mt-1">587 (TLS) ou 465 (SSL)</p>
                 </div>
@@ -597,7 +600,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                     value={smtpUser}
                     onChange={(e) => setSmtpUser(e.target.value)}
                     placeholder="votre@email.com"
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                    className="w-full px-4 py-2 border-2 border-coral-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500 bg-white text-cocoa-800"
                   />
                 </div>
 
@@ -610,7 +613,7 @@ export const Settings = ({ userId }: SettingsProps) => {
                     value={smtpPassword}
                     onChange={(e) => setSmtpPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-4 py-2 border-2 border-orange-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500"
+                    className="w-full px-4 py-2 border-2 border-coral-200 rounded-xl focus:ring-2 focus:ring-coral-500 focus:border-coral-500 bg-white text-cocoa-800"
                   />
                   <p className="text-xs text-cocoa-500 mt-1">
                     Pour Gmail: utilisez un mot de passe d'application
@@ -618,20 +621,20 @@ export const Settings = ({ userId }: SettingsProps) => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 p-3 bg-gradient-to-br from-peach-50 to-coral-50 rounded-lg border border-coral-200">
                 <input
                   type="checkbox"
                   id="smtp-secure"
                   checked={smtpSecure}
                   onChange={(e) => setSmtpSecure(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-coral-600 border-gray-300 rounded focus:ring-coral-500"
                 />
                 <label htmlFor="smtp-secure" className="text-sm text-cocoa-700 cursor-pointer">
                   Utiliser une connexion sécurisée (TLS/SSL) - Recommandé
                 </label>
               </div>
 
-              <div className="p-3 bg-amber-50 border-2 border-amber-200 rounded-lg">
+              <div className="p-3 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-amber-300 rounded-lg">
                 <p className="text-xs text-amber-800">
                   <strong>⚠️ Important:</strong> Pour Gmail, vous devez créer un "Mot de passe d'application" 
                   dans les paramètres de sécurité de votre compte Google. Les mots de passe normaux ne fonctionnent pas.
@@ -641,8 +644,8 @@ export const Settings = ({ userId }: SettingsProps) => {
           )}
         </div>
 
-        <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 border-2 border-orange-100 mb-6">
-          <h3 className="text-xl font-bold text-cocoa-800 mb-6">Signature Email</h3>
+        <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
+          <h3 className="text-xl font-bold text-cocoa-900 mb-6">Signature Email</h3>
           <p className="text-sm text-cocoa-600 mb-4">
             Cette signature sera ajoutée automatiquement en bas de tous les emails de compte-rendu
           </p>
@@ -670,11 +673,12 @@ export const Settings = ({ userId }: SettingsProps) => {
         <button
           onClick={handleSave}
           disabled={isSaving || isUploading}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-coral-500 to-coral-600 text-white hover:from-coral-600 hover:to-coral-700 rounded-xl transition-all shadow-lg shadow-coral-500/30 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white hover:from-coral-600 hover:to-sunset-600 rounded-xl transition-all shadow-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Save className="w-5 h-5" />
           {isUploading ? 'Téléchargement...' : isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
         </button>
+      </div>
       </div>
     </div>
   );

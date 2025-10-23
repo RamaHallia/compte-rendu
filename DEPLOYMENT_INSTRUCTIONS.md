@@ -5,24 +5,35 @@
 Tous les fichiers ont été modifiés et sont prêts pour le déploiement :
 
 1. ✅ **Migration SQL créée** : `supabase/migrations/20251023000002_add_smtp_password_encryption.sql`
-2. ✅ **Edge function modifiée** : `supabase/functions/send-email-smtp/index.ts`
-3. ✅ **Frontend modifié** : `src/components/Settings.tsx`
+2. ✅ **Edge function modifiée** : `supabase/functions/send-email-smtp/index.ts` (compatible avec ancien et nouveau système)
+3. ✅ **Frontend modifié** : `src/components/Settings.tsx` (compatible avec ancien et nouveau système)
 
-## 📋 Étapes de déploiement (dans l'ordre)
+## ⚡ Important : Compatibilité rétroactive
 
-### Étape 1 : Appliquer la migration SQL
+Le code a été modifié pour fonctionner **AVANT ET APRÈS** la migration :
+- ✅ Si la migration n'est pas appliquée : utilise `smtp_password` (ancien système)
+- ✅ Si la migration est appliquée : utilise `smtp_password_encrypted` (nouveau système chiffré)
+- ✅ Vous pouvez déployer le frontend et l'edge function **AVANT** d'appliquer la migration
+- ✅ L'application continue de fonctionner pendant la transition
 
-1. Ouvrez le fichier `supabase/migrations/20251023000002_add_smtp_password_encryption.sql`
-2. Copiez TOUT le contenu du fichier
-3. Allez sur https://supabase.com/dashboard
-4. Sélectionnez votre projet
-5. Cliquez sur **SQL Editor** dans le menu de gauche
-6. Cliquez sur **New Query**
-7. Collez le contenu copié
-8. Cliquez sur **Run** (ou Ctrl+Enter)
-9. ✅ Vérifiez qu'il n'y a pas d'erreur
+## 📋 Étapes de déploiement (ordre recommandé)
 
-### Étape 2 : Déployer l'Edge Function
+### Option A : Déploiement progressif (recommandé)
+
+Cette méthode permet de tester avant d'appliquer le chiffrement.
+
+#### Étape 1 : Déployer le Frontend MAINTENANT
+
+Le frontend fonctionne déjà avec l'ancien système :
+
+```bash
+npm run build
+# Puis déployez le dossier dist/ selon votre méthode habituelle
+```
+
+✅ **Testez maintenant** : Allez dans Paramètres, configurez SMTP et sauvegardez. Ça devrait fonctionner !
+
+#### Étape 2 : Déployer l'Edge Function
 
 1. Ouvrez le fichier `supabase/functions/send-email-smtp/index.ts`
 2. Copiez TOUT le contenu du fichier
@@ -35,16 +46,36 @@ Tous les fichiers ont été modifiés et sont prêts pour le déploiement :
 9. Cliquez sur **Deploy** ou **Save**
 10. ✅ Attendez que le déploiement soit terminé
 
-### Étape 3 : Déployer le Frontend
+✅ **Testez à nouveau** : Envoyez un email de test. Ça devrait toujours fonctionner !
 
-Le frontend a déjà été modifié et le build réussit. Il sera déployé automatiquement avec votre prochain déploiement.
+#### Étape 3 : Appliquer la migration SQL (quand vous êtes prêt)
 
-Si vous devez le déployer maintenant :
+⚠️ **Attention** : Cette étape supprime la colonne `smtp_password` en clair. Une fois appliquée, vous ne pourrez plus revenir en arrière facilement.
 
-```bash
-npm run build
-# Puis déployez le dossier dist/ selon votre méthode habituelle
-```
+1. Ouvrez le fichier `supabase/migrations/20251023000002_add_smtp_password_encryption.sql`
+2. Copiez TOUT le contenu du fichier
+3. Allez sur https://supabase.com/dashboard
+4. Sélectionnez votre projet
+5. Cliquez sur **SQL Editor** dans le menu de gauche
+6. Cliquez sur **New Query**
+7. Collez le contenu copié
+8. Cliquez sur **Run** (ou Ctrl+Enter)
+9. ✅ Vérifiez qu'il n'y a pas d'erreur
+
+✅ **Test final** :
+1. Allez dans Paramètres
+2. Vous devriez voir `••••••••` dans le champ mot de passe (si un mot de passe existe)
+3. Pour mettre à jour : entrez un nouveau mot de passe et sauvegardez
+4. Envoyez un email de test
+
+### Option B : Déploiement rapide
+
+Si vous êtes confiant et voulez tout faire d'un coup :
+
+1. **Déployez le frontend** (npm run build)
+2. **Déployez l'edge function** (copiez-collez dans Supabase)
+3. **Appliquez la migration SQL** (copiez-collez dans SQL Editor)
+4. **Testez**
 
 ## 🧪 Tests après déploiement
 

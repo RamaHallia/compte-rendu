@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, Clock, FileText, Calendar, BarChart3 } from 'lucide-react';
+import { TrendingUp, Clock, FileText, Calendar, BarChart3, Crown, Zap, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface DashboardStats {
@@ -15,6 +15,14 @@ interface DashboardStats {
   }[];
 }
 
+interface Subscription {
+  plan_type: 'starter' | 'unlimited';
+  minutes_quota: number | null;
+  minutes_used_this_month: number;
+  billing_cycle_end: string;
+  is_active: boolean;
+}
+
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats>({
     totalMeetings: 0,
@@ -24,6 +32,7 @@ export function Dashboard() {
     averageDuration: 0,
     recentActivity: []
   });
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +43,17 @@ export function Dashboard() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Charger l'abonnement
+      const { data: subData } = await supabase
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (subData) {
+        setSubscription(subData);
+      }
 
       const { data: meetings, error } = await supabase
         .from('meetings')
@@ -122,13 +142,105 @@ export function Dashboard() {
     );
   }
 
+  const minutesRemaining = subscription?.plan_type === 'starter' && subscription?.minutes_quota
+    ? subscription.minutes_quota - subscription.minutes_used_this_month
+    : null;
+
+  const usagePercentage = subscription?.plan_type === 'starter' && subscription?.minutes_quota
+    ? (subscription.minutes_used_this_month / subscription.minutes_quota) * 100
+    : 0;
+
+  const isNearLimit = subscription?.plan_type === 'starter' && usagePercentage >= 80;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-cocoa-900 mb-2">Tableau de bord</h1>
           <p className="text-cocoa-600">Vue d'ensemble de votre utilisation</p>
         </div>
+
+        {/* Carte d'abonnement */}
+        {subscription && (
+          <div className={`mb-8 rounded-2xl shadow-xl border-2 p-6 ${
+            subscription.plan_type === 'unlimited'
+              ? 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 border-amber-300'
+              : 'bg-gradient-to-br from-coral-50 via-peach-50 to-sunset-50 border-coral-300'
+          }`}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {subscription.plan_type === 'unlimited' ? (
+                  <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl shadow-lg">
+                    <Crown className="w-8 h-8 text-white" />
+                  </div>
+                ) : (
+                  <div className="p-3 bg-gradient-to-br from-coral-500 to-sunset-500 rounded-xl shadow-lg">
+                    <Zap className="w-8 h-8 text-white" />
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-2xl font-bold text-cocoa-900">
+                    {subscription.plan_type === 'unlimited' ? 'Formule Illimitée' : 'Formule Starter'}
+                  </h2>
+                  <p className="text-cocoa-600">
+                    {subscription.plan_type === 'unlimited' ? '39€/mois' : '29€/mois - 600 minutes'}
+                  </p>
+                </div>
+              </div>
+              {isNearLimit && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-red-100 border border-red-300 rounded-lg">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                  <span className="text-sm font-semibold text-red-700">Quota bientôt atteint</span>
+                </div>
+              )}
+            </div>
+
+            {subscription.plan_type === 'starter' && subscription.minutes_quota && (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-cocoa-700">Minutes utilisées ce mois</span>
+                  <span className="text-lg font-bold text-coral-600">
+                    {subscription.minutes_used_this_month} / {subscription.minutes_quota} min
+                  </span>
+                </div>
+                <div className="w-full bg-coral-100 rounded-full h-4 shadow-inner">
+                  <div
+                    className={`h-4 rounded-full transition-all duration-500 shadow-sm ${
+                      isNearLimit
+                        ? 'bg-gradient-to-r from-red-500 to-orange-500'
+                        : 'bg-gradient-to-r from-coral-500 to-sunset-500'
+                    }`}
+                    style={{ width: `${Math.min(usagePercentage, 100)}%` }}
+                  />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-cocoa-600">
+                    {minutesRemaining !== null && minutesRemaining > 0
+                      ? `${minutesRemaining} minutes restantes`
+                      : 'Quota atteint'}
+                  </span>
+                  <span className="text-cocoa-500">
+                    Renouvellement le {new Date(subscription.billing_cycle_end).toLocaleDateString('fr-FR')}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {subscription.plan_type === 'unlimited' && (
+              <div className="bg-white/50 rounded-xl p-4 border border-amber-200">
+                <div className="flex items-center gap-3">
+                  <Zap className="w-6 h-6 text-amber-600" />
+                  <div>
+                    <p className="font-semibold text-cocoa-900">Réunions illimitées</p>
+                    <p className="text-sm text-cocoa-600">
+                      {subscription.minutes_used_this_month} minutes utilisées ce mois
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6 hover:shadow-xl hover:scale-105 transition-all">

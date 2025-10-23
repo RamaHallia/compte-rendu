@@ -232,7 +232,14 @@ export const useAudioRecorder = () => {
       mediaRecorder.start();
 
       timerRef.current = window.setInterval(() => {
-        setRecordingTime(Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000));
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+        setRecordingTime(elapsed);
+
+        // Arrêter automatiquement après 4h (14400 secondes)
+        if (elapsed >= 14400) {
+          stopRecording();
+          alert('Enregistrement automatiquement arrêté après 4 heures (limite maximale)');
+        }
       }, 1000);
     } catch (error) {
       // Échec silencieux: on laisse l'UI décider d'afficher un état discret si besoin
@@ -259,7 +266,14 @@ export const useAudioRecorder = () => {
       setIsPaused(false);
 
       timerRef.current = window.setInterval(() => {
-        setRecordingTime(Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000));
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+        setRecordingTime(elapsed);
+
+        // Arrêter automatiquement après 4h (14400 secondes)
+        if (elapsed >= 14400) {
+          stopRecording();
+          alert('Enregistrement automatiquement arrêté après 4 heures (limite maximale)');
+        }
       }, 1000);
     }
   }, [isRecording, isPaused, recordingTime]);

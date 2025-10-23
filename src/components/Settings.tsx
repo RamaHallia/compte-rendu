@@ -1,9 +1,17 @@
 import { useState, useEffect } from 'react';
-import { Save, Upload, X, Edit2, Mail } from 'lucide-react';
+import { Save, Upload, X, Edit2, Mail, Crown, Zap, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface SettingsProps {
   userId: string;
+}
+
+interface Subscription {
+  plan_type: 'starter' | 'unlimited';
+  minutes_quota: number | null;
+  minutes_used_this_month: number;
+  billing_cycle_end: string;
+  is_active: boolean;
 }
 
 export const Settings = ({ userId }: SettingsProps) => {
@@ -23,9 +31,12 @@ export const Settings = ({ userId }: SettingsProps) => {
   const [smtpUser, setSmtpUser] = useState('');
   const [smtpPassword, setSmtpPassword] = useState('');
   const [smtpSecure, setSmtpSecure] = useState(true);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'unlimited'>('starter');
 
   useEffect(() => {
     loadSettings();
+    loadSubscription();
   }, [userId]);
 
   const loadSettings = async () => {
@@ -49,6 +60,52 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSmtpSecure(data.smtp_secure !== false);
       setHasSettings(true);
       setIsEditing(false);
+    }
+  };
+
+  const loadSubscription = async () => {
+    const { data } = await supabase
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data) {
+      setSubscription(data);
+      setSelectedPlan(data.plan_type);
+    }
+  };
+
+  const handleChangePlan = async () => {
+    if (!subscription) {
+      // Créer un nouvel abonnement
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: userId,
+          plan_type: selectedPlan,
+          minutes_quota: selectedPlan === 'starter' ? 600 : null,
+          minutes_used_this_month: 0,
+        });
+
+      if (!error) {
+        alert(`Votre abonnement ${selectedPlan === 'starter' ? 'Starter' : 'Illimité'} a été activé!`);
+        loadSubscription();
+      }
+    } else {
+      // Mettre à jour l'abonnement existant
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          plan_type: selectedPlan,
+          minutes_quota: selectedPlan === 'starter' ? 600 : null,
+        })
+        .eq('user_id', userId);
+
+      if (!error) {
+        alert(`Votre formule a été changée vers ${selectedPlan === 'starter' ? 'Starter' : 'Illimitée'}!`);
+        loadSubscription();
+      }
     }
   };
 
@@ -233,7 +290,153 @@ export const Settings = ({ userId }: SettingsProps) => {
         Paramètres
       </h2>
 
-      <div className="max-w-2xl">
+      <div className="max-w-4xl">
+        {/* Section Abonnement */}
+        <div className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 rounded-2xl p-6 border-2 border-purple-200 mb-8">
+          <h3 className="text-2xl font-bold text-cocoa-900 mb-4 flex items-center gap-2">
+            <CreditCard className="w-6 h-6 text-purple-600" />
+            Gérer mon abonnement
+          </h3>
+          <p className="text-sm text-cocoa-600 mb-6">
+            Choisissez la formule qui correspond à vos besoins
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            {/* Formule Starter */}
+            <div
+              onClick={() => setSelectedPlan('starter')}
+              className={`relative rounded-2xl p-6 border-2 cursor-pointer transition-all ${
+                selectedPlan === 'starter'
+                  ? 'border-coral-500 bg-gradient-to-br from-coral-50 to-sunset-50 shadow-xl scale-105'
+                  : 'border-coral-200 bg-white hover:border-coral-300 hover:shadow-lg'
+              }`}
+            >
+              {selectedPlan === 'starter' && (
+                <div className="absolute -top-3 right-4 px-3 py-1 bg-coral-500 text-white text-xs font-bold rounded-full shadow-lg">
+                  Sélectionné
+                </div>
+              )}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-gradient-to-br from-coral-500 to-sunset-500 rounded-xl shadow-md">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-cocoa-900">Formule Starter</h4>
+                  <p className="text-2xl font-bold text-coral-600">29€<span className="text-sm text-cocoa-600">/mois</span></p>
+                </div>
+              </div>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-semibold">600 minutes/mois</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Transcription IA</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Résumés automatiques</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Envoi d'emails</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Formule Illimitée */}
+            <div
+              onClick={() => setSelectedPlan('unlimited')}
+              className={`relative rounded-2xl p-6 border-2 cursor-pointer transition-all ${
+                selectedPlan === 'unlimited'
+                  ? 'border-amber-500 bg-gradient-to-br from-amber-50 to-yellow-50 shadow-xl scale-105'
+                  : 'border-amber-200 bg-white hover:border-amber-300 hover:shadow-lg'
+              }`}
+            >
+              {selectedPlan === 'unlimited' && (
+                <div className="absolute -top-3 right-4 px-3 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-lg">
+                  Sélectionné
+                </div>
+              )}
+              <div className="absolute -top-3 left-4 px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full shadow-lg">
+                ⭐ POPULAIRE
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-xl shadow-md">
+                  <Crown className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-xl font-bold text-cocoa-900">Formule Illimitée</h4>
+                  <p className="text-2xl font-bold text-amber-600">39€<span className="text-sm text-cocoa-600">/mois</span></p>
+                </div>
+              </div>
+              <ul className="space-y-2">
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span className="font-semibold">Minutes illimitées</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Transcription IA</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Résumés automatiques</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Envoi d'emails</span>
+                </li>
+                <li className="flex items-center gap-2 text-cocoa-700">
+                  <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  <span>Support prioritaire</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {subscription && subscription.plan_type !== selectedPlan && (
+            <button
+              onClick={handleChangePlan}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
+            >
+              Changer pour la formule {selectedPlan === 'starter' ? 'Starter (29€)' : 'Illimitée (39€)'}
+            </button>
+          )}
+
+          {!subscription && (
+            <button
+              onClick={handleChangePlan}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-semibold hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg"
+            >
+              Activer la formule {selectedPlan === 'starter' ? 'Starter (29€)' : 'Illimitée (39€)'}
+            </button>
+          )}
+
+          <p className="text-xs text-center text-cocoa-500 mt-4">
+            Note: Le blocage à 4h par réunion s'applique à toutes les formules
+          </p>
+        </div>
+
         <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-orange-100 mb-4 md:mb-6">
           <h3 className="text-lg md:text-xl font-bold text-cocoa-800 mb-4 md:mb-6">Configuration Email</h3>
 

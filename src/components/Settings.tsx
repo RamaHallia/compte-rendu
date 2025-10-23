@@ -31,7 +31,7 @@ export const Settings = ({ userId }: SettingsProps) => {
   const loadSettings = async () => {
     const { data, error } = await supabase
       .from('user_settings')
-      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password_encrypted, smtp_secure')
+      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -45,8 +45,7 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSmtpHost(data.smtp_host || '');
       setSmtpPort(data.smtp_port || 587);
       setSmtpUser(data.smtp_user || '');
-      // Le mot de passe est chiffré, on affiche un placeholder s'il existe
-      setSmtpPassword(data.smtp_password_encrypted ? '••••••••' : '');
+      setSmtpPassword(data.smtp_password || '');
       setSmtpSecure(data.smtp_secure !== false);
       setHasSettings(true);
       setIsEditing(false);
@@ -126,39 +125,22 @@ export const Settings = ({ userId }: SettingsProps) => {
         }
       }
 
-      // Préparer les données de base
-      const settingsData: any = {
-        user_id: userId,
-        sender_email: senderEmail,
-        sender_name: senderName,
-        signature_text: signatureText,
-        signature_logo_url: finalLogoUrl,
-        email_method: emailMethod,
-        smtp_host: emailMethod === 'smtp' ? smtpHost : null,
-        smtp_port: emailMethod === 'smtp' ? smtpPort : null,
-        smtp_user: emailMethod === 'smtp' ? smtpUser : null,
-        smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
-        updated_at: new Date().toISOString(),
-      };
-
-      // Chiffrer le mot de passe SMTP si nécessaire (pas '••••••••' = nouveau mot de passe)
-      if (emailMethod === 'smtp' && smtpPassword && smtpPassword !== '••••••••') {
-        const { data: encryptedPassword, error: encryptError } = await supabase.rpc('encrypt_smtp_password', {
-          password: smtpPassword,
-          user_id: userId
-        });
-
-        if (encryptError) {
-          console.error('Erreur de chiffrement:', encryptError);
-          throw new Error('Erreur lors du chiffrement du mot de passe. Assurez-vous que la migration a été appliquée.');
-        }
-
-        settingsData.smtp_password_encrypted = encryptedPassword;
-      }
-
       const { error } = await supabase
         .from('user_settings')
-        .upsert(settingsData, {
+        .upsert({
+          user_id: userId,
+          sender_email: senderEmail,
+          sender_name: senderName,
+          signature_text: signatureText,
+          signature_logo_url: finalLogoUrl,
+          email_method: emailMethod,
+          smtp_host: emailMethod === 'smtp' ? smtpHost : null,
+          smtp_port: emailMethod === 'smtp' ? smtpPort : null,
+          smtp_user: emailMethod === 'smtp' ? smtpUser : null,
+          smtp_password: emailMethod === 'smtp' ? smtpPassword : null,
+          smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
+          updated_at: new Date().toISOString(),
+        }, {
           onConflict: 'user_id'
         });
 

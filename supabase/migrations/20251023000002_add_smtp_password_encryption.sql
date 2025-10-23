@@ -8,7 +8,6 @@
 
   2. **Modification de la table user_settings**
     - Ajout d'une colonne `smtp_password_encrypted` (bytea) pour stocker le mot de passe chiffré
-    - Conservation temporaire de `smtp_password` pour la migration
 
   3. **Fonctions helper**
     - `encrypt_smtp_password()` - fonction pour chiffrer un mot de passe
@@ -18,7 +17,7 @@
 
   - Les mots de passe sont chiffrés avec AES-256
   - La clé de chiffrement est dérivée de l'ID utilisateur
-  - Après migration, la colonne `smtp_password` (non chiffrée) sera supprimée
+  - Cette migration suppose que la colonne `smtp_password` n'existe plus
 */
 
 -- Activer l'extension pgcrypto si elle n'est pas déjà activée
@@ -70,24 +69,8 @@ EXCEPTION
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Migrer les mots de passe existants (si présents)
-DO $$
-DECLARE
-  setting_record RECORD;
-BEGIN
-  FOR setting_record IN
-    SELECT user_id, smtp_password
-    FROM user_settings
-    WHERE smtp_password IS NOT NULL AND smtp_password != ''
-  LOOP
-    UPDATE user_settings
-    SET smtp_password_encrypted = encrypt_smtp_password(setting_record.smtp_password, setting_record.user_id)
-    WHERE user_id = setting_record.user_id;
-  END LOOP;
-END $$;
-
--- Supprimer l'ancienne colonne non chiffrée
-ALTER TABLE user_settings DROP COLUMN IF EXISTS smtp_password;
+-- Note : La colonne smtp_password a déjà été supprimée
+-- Les utilisateurs devront re-saisir leur mot de passe SMTP dans les paramètres
 
 -- Commentaires
 COMMENT ON COLUMN user_settings.smtp_password_encrypted IS 'Mot de passe SMTP chiffré avec AES-256';

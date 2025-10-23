@@ -1,150 +1,92 @@
-# ⚠️ INSTRUCTIONS URGENTES - Créer le bucket meeting-attachments
+# ⚠️ INSTRUCTIONS URGENTES - Problèmes à résoudre
 
-## Problème actuel
+## Problème 1 : Table `meetings` introuvable
 
-L'erreur **"Bucket not found" (404)** signifie que le bucket `meeting-attachments` n'existe pas dans votre projet Supabase.
+**Erreur** : `Could not find the table 'public.meetings' in the schema cache`
 
-## Solution immédiate (5 minutes)
+**Cause** : Les migrations de base de données n'ont pas été appliquées dans Supabase.
 
-### Étape 1 : Créer le bucket
+### Solution :
 
-1. Allez sur votre dashboard Supabase : https://app.supabase.com
+Vous devez appliquer TOUTES les migrations SQL dans Supabase Dashboard.
+
+1. Allez sur https://supabase.com/dashboard
 2. Sélectionnez votre projet
-3. Cliquez sur **Storage** dans le menu de gauche
-4. Cliquez sur **New bucket** (Nouveau bucket)
-5. Remplissez les informations :
-   - **Name** : `meeting-attachments`
-   - **Public bucket** : ✅ COCHEZ CETTE CASE (très important)
-   - Cliquez sur **Create bucket**
+3. Cliquez sur **SQL Editor**
+4. Pour chaque fichier ci-dessous (dans l'ordre), ouvrez-le, copiez le contenu et exécutez-le :
 
-### Étape 2 : Vérifier que le bucket est public
+- `20251010201237_create_meetings_table.sql`
+- `20251010220855_add_participant_and_attachments_to_meetings.sql`
+- `20251010223147_add_email_attachments_to_meetings.sql`
+- `20251011182746_add_notes_to_meetings.sql`
+- `20251011185248_create_user_settings_table.sql`
+- `20251011185629_update_user_settings_add_email_provider.sql`
+- `20251011190948_add_is_connected_to_user_settings.sql`
+- `20251011191827_remove_imap_from_user_settings.sql`
+- `20251012105226_add_signature_to_user_settings.sql`
+- `20251012105422_simplify_signature_fields.sql`
+- `20251012105918_add_logos_bucket_policies.sql`
+- `20251012140000_add_meeting_attachments_bucket_policies.sql`
+- `20251012141000_create_shortened_urls_table.sql`
+- `20251013000000_add_suggestions_to_meetings.sql`
+- `20251015160000_backfill_meeting_suggestions.sql`
+- `20251022000000_add_email_method_to_user_settings.sql`
+- `20251022000001_add_smtp_to_user_settings.sql`
+- `20251023000000_add_display_transcript_to_meetings.sql`
+- `20251023000002_add_smtp_password_encryption.sql` ← **NOUVEAU**
 
-1. Dans **Storage**, cliquez sur le bucket `meeting-attachments`
-2. Allez dans l'onglet **Configuration**
-3. Vérifiez que **Public bucket** est bien activé (ON)
+---
 
-### Étape 3 : Configurer les politiques d'accès
+## Problème 2 : Sauvegarde des paramètres SMTP
 
-1. Toujours dans le bucket `meeting-attachments`
-2. Allez dans l'onglet **Policies**
-3. Cliquez sur **New policy**
-4. Sélectionnez **Get started quickly** puis **Allow public read access**
-5. Ou créez une politique personnalisée :
+**Erreur** : "Erreur lors de la sauvegarde des paramètres"
 
-```sql
--- Lecture publique
-CREATE POLICY "Public can view meeting attachments"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'meeting-attachments');
-```
+**Cause** : La migration `20251023000002_add_smtp_password_encryption.sql` n'a pas été appliquée.
 
-### Étape 4 : Tester le lien
+### Solution :
 
-Une fois le bucket créé et configuré comme public, testez à nouveau le lien :
+Appliquez la migration (voir Problème 1 ci-dessus), puis déployez l'edge function et le frontend.
 
-```
-https://hgpwuljzgtlrwudhqtuq.supabase.co/storage/v1/object/public/meeting-attachments/a7b9146c-a7f1-4cab-bc19-3086802a243e/email-attachments/1760210579790.pdf
-```
+---
 
-Si le fichier existe, il devrait se télécharger.
+## 🚀 SOLUTION RAPIDE
 
-## Créer également le bucket logos (si non existant)
+### Étape 1 : Appliquer la dernière migration SMTP
 
-Répétez les mêmes étapes pour créer le bucket `logos` :
+1. Ouvrez le fichier `supabase/migrations/20251023000002_add_smtp_password_encryption.sql`
+2. Copiez TOUT le contenu
+3. Allez sur Supabase Dashboard → SQL Editor
+4. Collez et cliquez sur **Run**
 
-1. **Storage** > **New bucket**
-2. **Name** : `logos`
-3. **Public bucket** : ✅ COCHEZ CETTE CASE
-4. **Create bucket**
-5. Ajoutez la politique de lecture publique :
+### Étape 2 : Déployer l'edge function
 
-```sql
-CREATE POLICY "Public can view logos"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'logos');
-```
+1. Ouvrez `supabase/functions/send-email-smtp/index.ts`
+2. Copiez tout le contenu
+3. Allez sur Supabase Dashboard → Edge Functions → send-email-smtp
+4. Collez et déployez
 
-## Politique complète pour meeting-attachments
+### Étape 3 : Tester
 
-Si vous préférez configurer toutes les politiques d'un coup, allez dans **SQL Editor** et exécutez :
+1. Allez dans Paramètres de l'app
+2. Configurez SMTP et sauvegardez
+3. Ça devrait fonctionner !
 
-```sql
--- Lecture publique (ESSENTIEL pour les liens email)
-CREATE POLICY "Public can view meeting attachments"
-ON storage.objects FOR SELECT
-TO public
-USING (bucket_id = 'meeting-attachments');
+---
 
--- Upload pour utilisateurs authentifiés
-CREATE POLICY "Authenticated users can upload meeting attachments"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id = 'meeting-attachments');
+## ✅ Vérification
 
--- Mise à jour pour utilisateurs authentifiés
-CREATE POLICY "Authenticated users can update meeting attachments"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'meeting-attachments');
-
--- Suppression pour utilisateurs authentifiés
-CREATE POLICY "Authenticated users can delete meeting attachments"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id = 'meeting-attachments');
-```
-
-## Vérification finale
-
-### 1. Vérifier que les buckets existent
-
-Dans **Storage**, vous devriez voir :
-- ✅ `meeting-attachments` (Public)
-- ✅ `logos` (Public)
-
-### 2. Vérifier les politiques
-
-Dans **SQL Editor**, exécutez :
+Après avoir appliqué la migration, vérifiez avec ce SQL :
 
 ```sql
-SELECT * FROM storage.buckets WHERE name IN ('meeting-attachments', 'logos');
+-- Vérifier que les fonctions existent
+SELECT proname FROM pg_proc
+WHERE proname IN ('encrypt_smtp_password', 'decrypt_smtp_password');
+-- Résultat attendu : 2 lignes
+
+-- Vérifier que la colonne existe
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'user_settings'
+AND column_name = 'smtp_password_encrypted';
+-- Résultat attendu : 1 ligne (bytea)
 ```
-
-Résultat attendu : 2 lignes avec `public = true`
-
-### 3. Tester l'upload
-
-1. Revenez dans l'application
-2. Ouvrez une réunion
-3. Ajoutez un document joint
-4. Cliquez sur "Envoyer par email"
-5. Le lien du document devrait maintenant fonctionner
-
-## Résumé des actions
-
-- [ ] Créer le bucket `meeting-attachments` (Public ✅)
-- [ ] Créer le bucket `logos` (Public ✅)
-- [ ] Ajouter la politique de lecture publique pour `meeting-attachments`
-- [ ] Ajouter la politique de lecture publique pour `logos`
-- [ ] Tester les liens dans les emails
-
-## Si le problème persiste
-
-Si après avoir créé les buckets, les fichiers existants renvoient toujours 404 :
-
-1. **Les fichiers n'existent peut-être pas** - Ils ont été uploadés avant la création du bucket
-2. **Solution** : Re-télécharger les fichiers depuis l'application
-3. Dans l'application, allez dans la réunion concernée
-4. Supprimez les anciens documents joints
-5. Ajoutez-les à nouveau
-6. Les nouveaux liens fonctionneront
-
-## Besoin d'aide ?
-
-Si vous rencontrez des difficultés :
-1. Vérifiez dans **Storage** > **meeting-attachments** que vous voyez bien les fichiers
-2. Vérifiez que l'icône 🌐 (globe) est visible à côté du nom du bucket (= public)
-3. Consultez les logs dans l'onglet **Logs** de Supabase
-

@@ -53,7 +53,7 @@ serve(async (req) => {
     // Get SMTP configuration from user_settings
     const { data: settings, error: settingsError } = await supabaseClient
       .from('user_settings')
-      .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_password_encrypted, smtp_secure, sender_name, sender_email')
+      .select('smtp_host, smtp_port, smtp_user, smtp_password_encrypted, smtp_secure, sender_name, sender_email')
       .eq('user_id', user.id)
       .single()
 
@@ -61,33 +61,20 @@ serve(async (req) => {
       throw new Error('SMTP configuration not found')
     }
 
-    if (!settings.smtp_host || !settings.smtp_user) {
+    if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_password_encrypted) {
       throw new Error('SMTP configuration incomplete')
     }
 
-    // Déterminer le mot de passe à utiliser (chiffré ou en clair)
-    let smtpPassword: string | null = null
+    // Déchiffrer le mot de passe SMTP
+    const { data: decryptedPassword, error: decryptError } = await supabaseClient
+      .rpc('decrypt_smtp_password', {
+        encrypted_password: settings.smtp_password_encrypted,
+        user_id: user.id
+      })
 
-    if (settings.smtp_password_encrypted) {
-      // Nouveau système : déchiffrer le mot de passe
-      const { data: decryptedPassword, error: decryptError } = await supabaseClient
-        .rpc('decrypt_smtp_password', {
-          encrypted_password: settings.smtp_password_encrypted,
-          user_id: user.id
-        })
-
-      if (decryptError || !decryptedPassword) {
-        console.error('Failed to decrypt SMTP password:', decryptError)
-        throw new Error('Failed to decrypt SMTP password')
-      }
-
-      smtpPassword = decryptedPassword
-    } else if (settings.smtp_password) {
-      // Ancien système : utiliser le mot de passe en clair
-      console.warn('Using unencrypted SMTP password - please migrate to encrypted version')
-      smtpPassword = settings.smtp_password
-    } else {
-      throw new Error('SMTP password not found')
+    if (decryptError || !decryptedPassword) {
+      console.error('Failed to decrypt SMTP password:', decryptError)
+      throw new Error('Failed to decrypt SMTP password')
     }
 
     // Create SMTP client
@@ -98,7 +85,7 @@ serve(async (req) => {
         tls: settings.smtp_secure !== false,
         auth: {
           username: settings.smtp_user,
-          password: smtpPassword,
+          password: decryptedPassword,
         },
       },
     });

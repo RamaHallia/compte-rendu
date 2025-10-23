@@ -160,46 +160,60 @@ export function EmailComposer({
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    // Vérifier la taille du fichier (limite à 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('❌ Le fichier est trop volumineux. Taille maximale: 10 MB');
-      return;
+    // Convertir FileList en Array
+    const filesArray = Array.from(files);
+
+    // Vérifier la taille de chaque fichier (limite à 10MB)
+    for (const file of filesArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`❌ Le fichier "${file.name}" est trop volumineux. Taille maximale: 10 MB`);
+        return;
+      }
     }
 
     setIsUploadingAttachment(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `email-attachments/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const newAttachments: EmailAttachment[] = [];
 
-      const { error: uploadError } = await supabase.storage
-        .from('meeting-attachments')
-        .upload(fileName, file);
+      // Upload tous les fichiers
+      for (const file of filesArray) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `email-attachments/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-      if (uploadError) throw uploadError;
+        const { error: uploadError } = await supabase.storage
+          .from('meeting-attachments')
+          .upload(fileName, file);
 
-      const { data: urlData } = supabase.storage
-        .from('meeting-attachments')
-        .getPublicUrl(fileName);
+        if (uploadError) throw uploadError;
 
-      const newAttachment: EmailAttachment = {
-        name: file.name,
-        url: urlData.publicUrl,
-        size: file.size,
-        type: file.type
-      };
+        const { data: urlData } = supabase.storage
+          .from('meeting-attachments')
+          .getPublicUrl(fileName);
 
-      setAttachments(prev => [...prev, newAttachment]);
-    } catch (error) {
-      console.error('Erreur lors du téléchargement:', error);
-      alert('❌ Erreur lors du téléchargement du fichier');
-    } finally {
-      setIsUploadingAttachment(false);
+        const newAttachment: EmailAttachment = {
+          name: file.name,
+          url: urlData.publicUrl,
+          size: file.size,
+          type: file.type
+        };
+
+        newAttachments.push(newAttachment);
+      }
+
+      // Ajouter tous les nouveaux fichiers aux pièces jointes existantes
+      setAttachments(prev => [...prev, ...newAttachments]);
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    } catch (error) {
+      console.error('Erreur lors du téléchargement:', error);
+      alert('❌ Erreur lors du téléchargement des fichiers');
+    } finally {
+      setIsUploadingAttachment(false);
     }
   };
 
@@ -466,6 +480,7 @@ export function EmailComposer({
                 <input
                   ref={fileInputRef}
                   type="file"
+                  multiple
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={isSending || isUploadingAttachment}
@@ -479,7 +494,7 @@ export function EmailComposer({
                   ) : (
                     <>
                       <Upload className="w-4 h-4" />
-                      <span>Ajouter un fichier</span>
+                      <span>Ajouter des fichiers</span>
                     </>
                   )}
                 </div>

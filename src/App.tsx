@@ -93,7 +93,7 @@ function App() {
     removeTask,
     clearCompletedTasks,
     hasActiveTasks,
-  } = useBackgroundProcessing();
+  } = useBackgroundProcessing(user?.id);
 
   const {
     isRecording,
@@ -1178,7 +1178,10 @@ function App() {
           if (meeting) {
             handleViewMeeting(meeting);
           }
-          removeTask(backgroundTasks.find(t => t.meetingId === meetingId)?.id || '');
+          const taskToRemove = backgroundTasks.find(t => t.meeting_id === meetingId);
+          if (taskToRemove) {
+            removeTask(taskToRemove.id);
+          }
         }}
       />
 

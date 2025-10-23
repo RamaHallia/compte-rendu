@@ -86,10 +86,10 @@ export const BackgroundProcessingIndicator = ({
               <p className="text-xs text-cocoa-600 mb-3">
                 Votre réunion a été transcrite avec succès
               </p>
-              {task.meetingId && (
+              {task.meeting_id && (
                 <button
                   onClick={() => {
-                    onViewResult(task.meetingId!);
+                    onViewResult(task.meeting_id!);
                     onDismiss(task.id);
                   }}
                   className="w-full px-4 py-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:scale-105 transition-all"

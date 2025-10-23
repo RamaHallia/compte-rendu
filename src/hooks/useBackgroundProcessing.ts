@@ -1,78 +1,160 @@
 import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
 
 export interface BackgroundTask {
   id: string;
+  user_id: string;
   type: 'upload_transcription';
   status: 'processing' | 'completed' | 'error';
   progress: string;
-  startTime: number;
-  meetingId?: string;
+  meeting_id?: string;
   error?: string;
+  created_at: string;
+  updated_at: string;
 }
 
-const STORAGE_KEY = 'background_tasks';
+export const useBackgroundProcessing = (userId: string | undefined) => {
+  const [tasks, setTasks] = useState<BackgroundTask[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-export const useBackgroundProcessing = () => {
-  const [tasks, setTasks] = useState<BackgroundTask[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        const now = Date.now();
-        const fiveMinutes = 5 * 60 * 1000;
-
-        // Nettoyer les tâches de plus de 5 minutes ou avec status 'processing' invalide
-        const validTasks = parsed.filter((task: BackgroundTask) => {
-          const age = now - task.startTime;
-
-          // Supprimer les tâches trop anciennes
-          if (age > fiveMinutes) {
-            return false;
-          }
-
-          // Supprimer les tâches 'processing' de plus de 2 minutes (probablement bloquées)
-          if (task.status === 'processing' && age > 2 * 60 * 1000) {
-            return false;
-          }
-
-          return true;
-        });
-
-        return validTasks;
-      } catch {
-        return [];
-      }
+  const loadTasks = useCallback(async () => {
+    if (!userId) {
+      setTasks([]);
+      return;
     }
-    return [];
-  });
+
+    try {
+      const { data, error } = await supabase
+        .from('background_tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Auto-cleanup old completed tasks (older than 5 minutes)
+      const now = new Date().getTime();
+      const fiveMinutes = 5 * 60 * 1000;
+      const validTasks = (data || []).filter((task: BackgroundTask) => {
+        const taskTime = new Date(task.created_at).getTime();
+        const age = now - taskTime;
+
+        // Keep processing tasks regardless of age
+        if (task.status === 'processing') return true;
+
+        // Remove old completed/error tasks
+        return age < fiveMinutes;
+      });
+
+      setTasks(validTasks);
+    } catch (error) {
+      console.error('Erreur chargement tâches:', error);
+    }
+  }, [userId]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    if (!userId) return;
 
-  const addTask = useCallback((task: Omit<BackgroundTask, 'id' | 'startTime'>) => {
-    const newTask: BackgroundTask = {
-      ...task,
-      id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      startTime: Date.now(),
+    loadTasks();
+
+    // Écouter les changements en temps réel
+    const channel = supabase
+      .channel('background_tasks_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'background_tasks',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          loadTasks();
+        }
+      )
+      .subscribe();
+
+    // Polling pour les mises à jour (backup si realtime ne fonctionne pas)
+    const interval = setInterval(() => {
+      loadTasks();
+    }, 5000);
+
+    return () => {
+      channel.unsubscribe();
+      clearInterval(interval);
     };
-    setTasks(prev => [...prev, newTask]);
-    return newTask.id;
-  }, []);
+  }, [userId, loadTasks]);
 
-  const updateTask = useCallback((id: string, updates: Partial<BackgroundTask>) => {
-    setTasks(prev => prev.map(task =>
-      task.id === id ? { ...task, ...updates } : task
-    ));
-  }, []);
+  const addTask = useCallback(async (task: Omit<BackgroundTask, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+    if (!userId) return null;
 
-  const removeTask = useCallback((id: string) => {
-    setTasks(prev => prev.filter(task => task.id !== id));
-  }, []);
+    try {
+      const { data, error } = await supabase
+        .from('background_tasks')
+        .insert({
+          ...task,
+          user_id: userId,
+        })
+        .select()
+        .single();
 
-  const clearCompletedTasks = useCallback(() => {
-    setTasks(prev => prev.filter(task => task.status !== 'completed'));
-  }, []);
+      if (error) throw error;
+
+      await loadTasks();
+      return data?.id || null;
+    } catch (error) {
+      console.error('Erreur ajout tâche:', error);
+      return null;
+    }
+  }, [userId, loadTasks]);
+
+  const updateTask = useCallback(async (id: string, updates: Partial<BackgroundTask>) => {
+    try {
+      const { error } = await supabase
+        .from('background_tasks')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadTasks();
+    } catch (error) {
+      console.error('Erreur mise à jour tâche:', error);
+    }
+  }, [loadTasks]);
+
+  const removeTask = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('background_tasks')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      await loadTasks();
+    } catch (error) {
+      console.error('Erreur suppression tâche:', error);
+    }
+  }, [loadTasks]);
+
+  const clearCompletedTasks = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const { error } = await supabase
+        .from('background_tasks')
+        .delete()
+        .eq('user_id', userId)
+        .eq('status', 'completed');
+
+      if (error) throw error;
+
+      await loadTasks();
+    } catch (error) {
+      console.error('Erreur nettoyage tâches:', error);
+    }
+  }, [userId, loadTasks]);
 
   const getActiveTask = useCallback(() => {
     return tasks.find(task => task.status === 'processing');
@@ -88,6 +170,7 @@ export const useBackgroundProcessing = () => {
 
   return {
     tasks,
+    isLoading,
     addTask,
     updateTask,
     removeTask,
@@ -95,5 +178,6 @@ export const useBackgroundProcessing = () => {
     getActiveTask,
     hasActiveTasks,
     hasCompletedTasks,
+    loadTasks,
   };
 };

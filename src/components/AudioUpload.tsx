@@ -17,6 +17,8 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
   const [notes, setNotes] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const { addTask, updateTask } = useBackgroundProcessing(userId);
+
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -33,23 +35,27 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
     }
   };
 
-  const { addTask, updateTask } = useBackgroundProcessing();
-
   const handleUpload = async () => {
     if (!selectedFile) return;
 
     setIsProcessing(true);
-    const taskId = addTask({
+    const taskId = await addTask({
       type: 'upload_transcription',
       status: 'processing',
       progress: 'Démarrage du traitement...',
     });
 
+    if (!taskId) {
+      alert('Erreur lors de la création de la tâche');
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       // 1) Upload de l'audio original dans Supabase Storage
       const uploadProgress = 'Téléversement du fichier audio...';
       setProgress(uploadProgress);
-      updateTask(taskId, { progress: uploadProgress });
+      await updateTask(taskId, { progress: uploadProgress });
       const now = new Date();
       const datePart = now.toISOString().slice(0, 10);
       const timePart = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
@@ -76,7 +82,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       // 2) Créer une réunion minimale
       const createProgress = 'Création de la réunion...';
       setProgress(createProgress);
-      updateTask(taskId, { progress: createProgress });
+      await updateTask(taskId, { progress: createProgress });
       const provisionalTitle = meetingTitle || `Upload du ${new Date().toLocaleDateString('fr-FR')}`;
       const { data: meeting, error: createError } = await supabase
         .from('meetings')
@@ -97,16 +103,16 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
 
       // 3) Transcrire avec l'endpoint /transcribe_long
       setProgress('Transcription en cours...');
-      updateTask(taskId, { progress: 'Transcription en cours...', meetingId: meeting?.id });
-      const fullTranscript = await transcribeLongAudio(selectedFile, (msg) => {
+      await updateTask(taskId, { progress: 'Transcription en cours...', meeting_id: meeting?.id });
+      const fullTranscript = await transcribeLongAudio(selectedFile, async (msg) => {
         setProgress(msg);
-        updateTask(taskId, { progress: msg });
+        await updateTask(taskId, { progress: msg });
       });
 
       // 4) Générer le résumé
       const summaryProgress = 'Génération du résumé IA...';
       setProgress(summaryProgress);
-      updateTask(taskId, { progress: summaryProgress });
+      await updateTask(taskId, { progress: summaryProgress });
       const { title, summary } = await generateSummary(fullTranscript);
 
       // 5) Mettre à jour la réunion
@@ -129,11 +135,11 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       // Mark task as completed - this will trigger the notification
-      setTimeout(() => {
-        updateTask(taskId, {
+      setTimeout(async () => {
+        await updateTask(taskId, {
           status: 'completed',
           progress: 'Transcription terminée',
-          meetingId: meeting?.id
+          meeting_id: meeting?.id
         });
       }, 100);
 
@@ -141,7 +147,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       // Let the user click "Voir le résultat" button in notification
     } catch (error: any) {
       console.error('Erreur:', error);
-      updateTask(taskId, {
+      await updateTask(taskId, {
         status: 'error',
         error: error.message || 'Une erreur est survenue'
       });

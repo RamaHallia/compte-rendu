@@ -26,16 +26,52 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       const audio = new Audio();
       audio.preload = 'metadata';
 
+      let resolved = false;
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          console.warn('⚠️ Timeout lors de l\'extraction de la durée');
+          resolved = true;
+          window.URL.revokeObjectURL(audio.src);
+          resolve(0);
+        }
+      }, 5000);
+
       audio.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(audio.src);
-        resolve(Math.floor(audio.duration));
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          const duration = Math.floor(audio.duration);
+          console.log('✅ Durée extraite:', duration, 'secondes');
+          window.URL.revokeObjectURL(audio.src);
+
+          // Vérifier que la durée est valide
+          if (isNaN(duration) || !isFinite(duration) || duration <= 0) {
+            console.warn('⚠️ Durée invalide détectée:', duration);
+            resolve(0);
+          } else {
+            resolve(duration);
+          }
+        }
       };
 
-      audio.onerror = () => {
+      audio.onerror = (e) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeoutId);
+          console.error('❌ Erreur lors du chargement audio:', e);
+          window.URL.revokeObjectURL(audio.src);
+          resolve(0);
+        }
+      };
+
+      try {
+        audio.src = window.URL.createObjectURL(file);
+      } catch (error) {
+        console.error('❌ Erreur lors de la création de l\'URL:', error);
+        resolved = true;
+        clearTimeout(timeoutId);
         resolve(0);
-      };
-
-      audio.src = window.URL.createObjectURL(file);
+      }
     });
   };
 
@@ -109,6 +145,9 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       setProgress(createProgress);
       await updateTask(taskId, { progress: createProgress, progress_percent: 20 });
       const provisionalTitle = meetingTitle || `Upload du ${new Date().toLocaleDateString('fr-FR')}`;
+
+      console.log('📊 Création réunion avec durée:', audioDuration, 'secondes');
+
       const { data: meeting, error: createError } = await supabase
         .from('meetings')
         .insert({
@@ -168,6 +207,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       setSelectedFile(null);
       setMeetingTitle('');
       setNotes('');
+      setAudioDuration(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       // Mark task as completed - this will trigger the notification
@@ -226,12 +266,18 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
                   <p className="text-sm text-cocoa-600">
                     {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
+                  {audioDuration > 0 && (
+                    <p className="text-sm text-green-600 font-semibold mt-1">
+                      Durée: {Math.floor(audioDuration / 60)}:{String(audioDuration % 60).padStart(2, '0')}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.preventDefault();
                     setSelectedFile(null);
+                    setAudioDuration(0);
                     if (fileInputRef.current) fileInputRef.current.value = '';
                   }}
                   className="text-sm text-coral-600 hover:text-coral-700 font-semibold flex items-center gap-1"

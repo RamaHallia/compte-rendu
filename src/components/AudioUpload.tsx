@@ -145,10 +145,13 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       // 2) Transcrire directement - pas besoin de stocker l'audio
       setProgress('Envoi au serveur de transcription...');
       await updateTask(taskId, { progress: 'Envoi au serveur de transcription...', meeting_id: meeting.id, progress_percent: 20 });
-      const fullTranscript = await transcribeLongAudio(selectedFile, async (msg) => {
+      const transcriptionResult = await transcribeLongAudio(selectedFile, async (msg) => {
         setProgress(msg);
         await updateTask(taskId, { progress: msg, progress_percent: 60 });
       });
+
+      const fullTranscript = transcriptionResult.transcript;
+      const actualDuration = transcriptionResult.duration_seconds || audioDuration;
 
       // 4) Générer le résumé
       const summaryProgress = 'Génération du résumé IA...';
@@ -164,6 +167,7 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
           title: finalTitle,
           transcript: fullTranscript,
           summary,
+          duration: actualDuration,
         })
         .eq('id', meeting.id);
 

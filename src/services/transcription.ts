@@ -57,7 +57,7 @@ export const transcribeAudio = async (audioBlob: Blob, retryCount = 0, filename?
 export const transcribeLongAudio = async (
   audioFile: File,
   onProgress?: (message: string) => void
-): Promise<string> => {
+): Promise<{ transcript: string; duration_seconds?: number }> => {
   const baseUrl = TRANSCRIBE_LONG_URL || TRANSCRIBE_URL?.replace('/transcribe', '/transcribe_long');
 
   if (!baseUrl) {
@@ -92,7 +92,10 @@ export const transcribeLongAudio = async (
       onProgress(`Transcription terminée (${data.segments_count} segments traités)`);
     }
 
-    return data.transcript || '';
+    return {
+      transcript: data.transcript || '',
+      duration_seconds: data.duration_seconds
+    };
   } catch (error) {
     console.error('Erreur transcription longue:', error);
     throw error;

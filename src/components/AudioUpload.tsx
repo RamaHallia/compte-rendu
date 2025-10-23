@@ -1,11 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Upload, FileAudio, X, Loader } from 'lucide-react';
 import { transcribeLongAudio, generateSummary } from '../services/transcription';
 import { supabase } from '../lib/supabase';
+import { useBackgroundProcessing } from '../hooks/useBackgroundProcessing';
 
 interface AudioUploadProps {
   userId: string;
-  onSuccess: () => void;
+  onSuccess: (meetingId?: string) => void;
 }
 
 export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
@@ -32,13 +33,23 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
     }
   };
 
+  const { addTask, updateTask } = useBackgroundProcessing();
+
   const handleUpload = async () => {
     if (!selectedFile) return;
 
     setIsProcessing(true);
+    const taskId = addTask({
+      type: 'upload_transcription',
+      status: 'processing',
+      progress: 'Démarrage du traitement...',
+    });
+
     try {
       // 1) Upload de l'audio original dans Supabase Storage
-      setProgress('Téléversement du fichier audio...');
+      const uploadProgress = 'Téléversement du fichier audio...';
+      setProgress(uploadProgress);
+      updateTask(taskId, { progress: uploadProgress });
       const now = new Date();
       const datePart = now.toISOString().slice(0, 10);
       const timePart = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}-${String(now.getSeconds()).padStart(2, '0')}`;
@@ -63,7 +74,9 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       const audioUrl = pub.publicUrl;
 
       // 2) Créer une réunion minimale
-      setProgress('Création de la réunion...');
+      const createProgress = 'Création de la réunion...';
+      setProgress(createProgress);
+      updateTask(taskId, { progress: createProgress });
       const provisionalTitle = meetingTitle || `Upload du ${new Date().toLocaleDateString('fr-FR')}`;
       const { data: meeting, error: createError } = await supabase
         .from('meetings')
@@ -84,12 +97,16 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
 
       // 3) Transcrire avec l'endpoint /transcribe_long
       setProgress('Transcription en cours...');
+      updateTask(taskId, { progress: 'Transcription en cours...', meetingId: meeting?.id });
       const fullTranscript = await transcribeLongAudio(selectedFile, (msg) => {
         setProgress(msg);
+        updateTask(taskId, { progress: msg });
       });
 
       // 4) Générer le résumé
-      setProgress('Génération du résumé IA...');
+      const summaryProgress = 'Génération du résumé IA...';
+      setProgress(summaryProgress);
+      updateTask(taskId, { progress: summaryProgress });
       const { title, summary } = await generateSummary(fullTranscript);
 
       // 5) Mettre à jour la réunion
@@ -104,17 +121,25 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
         .eq('id', meeting?.id);
 
       setProgress('Terminé !');
-      alert('Audio transcrit et résumé généré avec succès !');
-      
+      updateTask(taskId, {
+        status: 'completed',
+        progress: 'Transcription terminée',
+        meetingId: meeting?.id
+      });
+
       // Reset
       setSelectedFile(null);
       setMeetingTitle('');
       setNotes('');
       if (fileInputRef.current) fileInputRef.current.value = '';
-      
-      onSuccess();
+
+      onSuccess(meeting?.id);
     } catch (error: any) {
       console.error('Erreur:', error);
+      updateTask(taskId, {
+        status: 'error',
+        error: error.message || 'Une erreur est survenue'
+      });
       alert(`Erreur: ${error.message || 'Une erreur est survenue'}`);
     } finally {
       setIsProcessing(false);

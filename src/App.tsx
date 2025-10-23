@@ -16,7 +16,9 @@ import { LandingPage } from './components/LandingPage';
 import { Settings } from './components/Settings';
 import { LiveSuggestions } from './components/LiveSuggestions';
 import { AudioUpload } from './components/AudioUpload';
+import { BackgroundProcessingIndicator } from './components/BackgroundProcessingIndicator';
 import { supabase, Meeting } from './lib/supabase';
+import { useBackgroundProcessing } from './hooks/useBackgroundProcessing';
 import { transcribeAudio, generateSummary } from './services/transcription';
 import { ensureWhisperCompatible } from './services/audioEncoding';
 
@@ -85,6 +87,13 @@ function App() {
   const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(0);
   const [selectedRecordingMode, setSelectedRecordingMode] = useState<'microphone' | 'system' | 'visio'>('microphone');
+
+  const {
+    tasks: backgroundTasks,
+    removeTask,
+    clearCompletedTasks,
+    hasActiveTasks,
+  } = useBackgroundProcessing();
 
   const {
     isRecording,
@@ -1100,12 +1109,21 @@ function App() {
               <MeetingHistory meetings={meetings} onDelete={handleDelete} onView={handleViewMeeting} isLoading={isMeetingsLoading} />
             </div>
           ) : view === 'upload' ? (
-            <AudioUpload 
-              userId={user?.id || ''} 
-              onSuccess={() => {
+            <AudioUpload
+              userId={user?.id || ''}
+              onSuccess={(meetingId) => {
                 loadMeetings();
-                setView('history');
-              }} 
+                if (meetingId) {
+                  const meeting = meetings.find(m => m.id === meetingId);
+                  if (meeting) {
+                    handleViewMeeting(meeting);
+                  } else {
+                    setView('history');
+                  }
+                } else {
+                  setView('history');
+                }
+              }}
             />
           ) : view === 'settings' ? (
             <Settings userId={user?.id || ''} />
@@ -1149,6 +1167,20 @@ function App() {
       </div>
 
       {/* LiveSuggestions désactivé */}
+
+      {/* Indicateur de traitement en arrière-plan */}
+      <BackgroundProcessingIndicator
+        tasks={backgroundTasks}
+        onDismiss={removeTask}
+        onViewResult={async (meetingId) => {
+          await loadMeetings();
+          const meeting = meetings.find(m => m.id === meetingId);
+          if (meeting) {
+            handleViewMeeting(meeting);
+          }
+          removeTask(backgroundTasks.find(t => t.meetingId === meetingId)?.id || '');
+        }}
+      />
 
       <ProcessingModal isOpen={isProcessing} status={processingStatus} onClose={() => setIsProcessing(false)} />
 

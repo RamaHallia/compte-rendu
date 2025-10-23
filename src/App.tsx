@@ -1173,11 +1173,36 @@ function App() {
         tasks={backgroundTasks}
         onDismiss={removeTask}
         onViewResult={async (meetingId) => {
-          await loadMeetings();
-          const meeting = meetings.find(m => m.id === meetingId);
-          if (meeting) {
-            handleViewMeeting(meeting);
+          console.log('🔍 Recherche de la réunion:', meetingId);
+
+          // Charger directement la réunion depuis la base
+          const { data: meeting, error } = await supabase
+            .from('meetings')
+            .select('*')
+            .eq('id', meetingId)
+            .maybeSingle();
+
+          console.log('📋 Réunion trouvée:', meeting);
+
+          if (error) {
+            console.error('❌ Erreur chargement réunion:', error);
+            alert('Erreur lors du chargement de la réunion');
+            return;
           }
+
+          if (!meeting) {
+            console.error('❌ Réunion non trouvée:', meetingId);
+            alert('Réunion non trouvée');
+            return;
+          }
+
+          // Recharger toutes les réunions pour mettre à jour la liste
+          await loadMeetings();
+
+          // Afficher la réunion
+          handleViewMeeting(meeting);
+
+          // Supprimer la tâche
           const taskToRemove = backgroundTasks.find(t => t.meeting_id === meetingId);
           if (taskToRemove) {
             removeTask(taskToRemove.id);

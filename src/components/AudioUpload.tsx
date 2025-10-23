@@ -99,11 +99,15 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
         .select()
         .maybeSingle();
 
-      if (createError) throw createError;
+      if (createError || !meeting) {
+        throw new Error('Erreur lors de la création de la réunion');
+      }
+
+      console.log('✅ Réunion créée avec ID:', meeting.id);
 
       // 3) Transcrire avec l'endpoint /transcribe_long
       setProgress('Transcription en cours...');
-      await updateTask(taskId, { progress: 'Transcription en cours...', meeting_id: meeting?.id });
+      await updateTask(taskId, { progress: 'Transcription en cours...', meeting_id: meeting.id });
       const fullTranscript = await transcribeLongAudio(selectedFile, async (msg) => {
         setProgress(msg);
         await updateTask(taskId, { progress: msg });
@@ -117,14 +121,21 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
 
       // 5) Mettre à jour la réunion
       const finalTitle = meetingTitle || title || provisionalTitle;
-      await supabase
+      const { error: updateError } = await supabase
         .from('meetings')
         .update({
           title: finalTitle,
           transcript: fullTranscript,
           summary,
         })
-        .eq('id', meeting?.id);
+        .eq('id', meeting.id);
+
+      if (updateError) {
+        console.error('❌ Erreur mise à jour réunion:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Réunion mise à jour avec succès:', meeting.id);
 
       setProgress('Terminé !');
 
@@ -135,11 +146,12 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
       if (fileInputRef.current) fileInputRef.current.value = '';
 
       // Mark task as completed - this will trigger the notification
+      console.log('✅ Marquage de la tâche comme terminée avec meeting_id:', meeting.id);
       setTimeout(async () => {
         await updateTask(taskId, {
           status: 'completed',
           progress: 'Transcription terminée',
-          meeting_id: meeting?.id
+          meeting_id: meeting.id
         });
       }, 100);
 

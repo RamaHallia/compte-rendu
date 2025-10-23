@@ -739,6 +739,17 @@ function App() {
               <span>Enregistrer</span>
             </button>
             <button
+              onClick={() => setView('dashboard')}
+              className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-semibold transition-all text-sm md:text-base whitespace-nowrap ${
+                view === 'dashboard'
+                  ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-lg shadow-coral-500/30'
+                  : 'text-cocoa-700 hover:bg-orange-50'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />
+              <span>Tableau de bord</span>
+            </button>
+            <button
                 onClick={() => {
                 loadMeetings();
                 setView('history');
@@ -751,17 +762,6 @@ function App() {
             >
               <History className="w-4 h-4 md:w-5 md:h-5" />
               <span>Historique</span>
-            </button>
-            <button
-              onClick={() => setView('dashboard')}
-              className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-semibold transition-all text-sm md:text-base whitespace-nowrap ${
-                view === 'dashboard'
-                  ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-lg shadow-coral-500/30'
-                  : 'text-cocoa-700 hover:bg-orange-50'
-              }`}
-            >
-              <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />
-              <span>Tableau de bord</span>
             </button>
             <button
               onClick={() => setView('upload')}

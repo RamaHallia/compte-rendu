@@ -1,5 +1,6 @@
-import { Loader, CheckCircle, XCircle, X } from 'lucide-react';
+import { Loader2, Sparkles, X } from 'lucide-react';
 import { BackgroundTask } from '../hooks/useBackgroundProcessing';
+import { useEffect, useState } from 'react';
 
 interface BackgroundProcessingIndicatorProps {
   tasks: BackgroundTask[];
@@ -14,31 +15,54 @@ export const BackgroundProcessingIndicator = ({
 }: BackgroundProcessingIndicatorProps) => {
   const activeTask = tasks.find(t => t.status === 'processing');
   const completedTasks = tasks.filter(t => t.status === 'completed');
-  const errorTasks = tasks.filter(t => t.status === 'error');
+  const [autoClosing, setAutoClosing] = useState<{ [key: string]: number }>({});
 
-  if (!activeTask && completedTasks.length === 0 && errorTasks.length === 0) {
+  useEffect(() => {
+    completedTasks.forEach(task => {
+      if (!autoClosing[task.id]) {
+        setAutoClosing(prev => ({ ...prev, [task.id]: 10 }));
+
+        const interval = setInterval(() => {
+          setAutoClosing(prev => {
+            const newCount = (prev[task.id] || 0) - 1;
+            if (newCount <= 0) {
+              clearInterval(interval);
+              setTimeout(() => onDismiss(task.id), 100);
+              return prev;
+            }
+            return { ...prev, [task.id]: newCount };
+          });
+        }, 1000);
+      }
+    });
+  }, [completedTasks.length]);
+
+  if (!activeTask && completedTasks.length === 0) {
     return null;
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
+    <div className="fixed top-4 right-4 z-50 space-y-3 w-80">
       {activeTask && (
-        <div className="bg-white rounded-xl shadow-2xl border-2 border-blue-200 p-4 animate-slide-in-right">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <Loader className="w-6 h-6 text-blue-500 animate-spin" />
+        <div className="bg-gradient-to-br from-white to-orange-50 rounded-2xl shadow-xl border-2 border-orange-200 p-5 backdrop-blur-sm">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="relative">
+              <div className="w-10 h-10 bg-gradient-to-br from-coral-500 to-sunset-500 rounded-full flex items-center justify-center">
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              </div>
+              <div className="absolute inset-0 bg-coral-400 rounded-full animate-ping opacity-20"></div>
             </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-bold text-cocoa-800 text-sm mb-1">
+            <div className="flex-1">
+              <h4 className="font-bold text-cocoa-800 text-sm">
                 Traitement en cours
               </h4>
-              <p className="text-xs text-cocoa-600">
-                {activeTask.progress}
-              </p>
-              <div className="mt-2 h-1 bg-blue-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '70%' }}></div>
-              </div>
             </div>
+          </div>
+          <p className="text-xs text-cocoa-600 mb-3 px-1">
+            {activeTask.progress}
+          </p>
+          <div className="h-2 bg-orange-100 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-coral-500 to-sunset-500 rounded-full transition-all duration-500 animate-pulse" style={{ width: '65%' }}></div>
           </div>
         </div>
       )}
@@ -46,63 +70,43 @@ export const BackgroundProcessingIndicator = ({
       {completedTasks.map((task) => (
         <div
           key={task.id}
-          className="bg-white rounded-xl shadow-2xl border-2 border-green-200 p-4 animate-slide-in-right"
+          className="bg-gradient-to-br from-white to-green-50 rounded-2xl shadow-xl border-2 border-green-200 p-5 backdrop-blur-sm animate-slide-in-right"
         >
           <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <CheckCircle className="w-6 h-6 text-green-500" />
+            <div className="relative flex-shrink-0">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-20"></div>
             </div>
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-cocoa-800 text-sm mb-1">
-                Traitement terminé
+                Transcription prête !
               </h4>
               <p className="text-xs text-cocoa-600 mb-3">
-                Votre transcription est prête
+                Votre réunion a été transcrite avec succès
               </p>
-              <div className="flex items-center gap-2">
-                {task.meetingId && (
-                  <button
-                    onClick={() => onViewResult(task.meetingId!)}
-                    className="flex-1 px-3 py-1.5 bg-gradient-to-r from-coral-500 to-coral-600 text-white rounded-lg text-xs font-semibold hover:shadow-lg transition-all"
-                  >
-                    Voir le résultat
-                  </button>
-                )}
+              {task.meetingId && (
                 <button
-                  onClick={() => onDismiss(task.id)}
-                  className="p-1.5 text-cocoa-400 hover:text-cocoa-600 transition-colors"
+                  onClick={() => {
+                    onViewResult(task.meetingId!);
+                    onDismiss(task.id);
+                  }}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-coral-500 to-coral-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:scale-105 transition-all"
                 >
-                  <X className="w-4 h-4" />
+                  Voir le résultat
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ))}
-
-      {errorTasks.map((task) => (
-        <div
-          key={task.id}
-          className="bg-white rounded-xl shadow-2xl border-2 border-red-200 p-4 animate-slide-in-right"
-        >
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0">
-              <XCircle className="w-6 h-6 text-red-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="font-bold text-cocoa-800 text-sm mb-1">
-                Erreur de traitement
-              </h4>
-              <p className="text-xs text-cocoa-600 mb-2">
-                {task.error || 'Une erreur est survenue'}
+              )}
+              <p className="text-xs text-cocoa-400 mt-2 text-center">
+                Fermeture auto dans {autoClosing[task.id] || 0}s
               </p>
-              <button
-                onClick={() => onDismiss(task.id)}
-                className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-xs font-semibold hover:bg-red-200 transition-all"
-              >
-                Fermer
-              </button>
             </div>
+            <button
+              onClick={() => onDismiss(task.id)}
+              className="flex-shrink-0 p-1 text-cocoa-400 hover:text-cocoa-600 hover:bg-cocoa-100 rounded-lg transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       ))}

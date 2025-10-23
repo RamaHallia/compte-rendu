@@ -121,19 +121,24 @@ export const AudioUpload = ({ userId, onSuccess }: AudioUploadProps) => {
         .eq('id', meeting?.id);
 
       setProgress('Terminé !');
-      updateTask(taskId, {
-        status: 'completed',
-        progress: 'Transcription terminée',
-        meetingId: meeting?.id
-      });
 
-      // Reset
+      // Reset UI immediately
       setSelectedFile(null);
       setMeetingTitle('');
       setNotes('');
       if (fileInputRef.current) fileInputRef.current.value = '';
 
-      onSuccess(meeting?.id);
+      // Mark task as completed - this will trigger the notification
+      setTimeout(() => {
+        updateTask(taskId, {
+          status: 'completed',
+          progress: 'Transcription terminée',
+          meetingId: meeting?.id
+        });
+      }, 100);
+
+      // Don't call onSuccess here to avoid navigation
+      // Let the user click "Voir le résultat" button in notification
     } catch (error: any) {
       console.error('Erreur:', error);
       updateTask(taskId, {

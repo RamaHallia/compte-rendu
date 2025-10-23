@@ -59,10 +59,15 @@ Deno.serve(async (req) => {
       .from('user_settings')
       .select('smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure, sender_name, sender_email')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (settingsError || !settings) {
-      throw new Error('SMTP configuration not found')
+    if (settingsError) {
+      console.error('Error fetching settings:', settingsError)
+      throw new Error(`Database error: ${settingsError.message}`)
+    }
+
+    if (!settings) {
+      throw new Error('SMTP configuration not found. Please configure SMTP settings in the Settings page.')
     }
 
     if (!settings.smtp_host || !settings.smtp_user || !settings.smtp_password) {

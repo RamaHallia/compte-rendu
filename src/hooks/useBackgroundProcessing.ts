@@ -17,7 +17,28 @@ export const useBackgroundProcessing = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        const now = Date.now();
+        const fiveMinutes = 5 * 60 * 1000;
+
+        // Nettoyer les tâches de plus de 5 minutes ou avec status 'processing' invalide
+        const validTasks = parsed.filter((task: BackgroundTask) => {
+          const age = now - task.startTime;
+
+          // Supprimer les tâches trop anciennes
+          if (age > fiveMinutes) {
+            return false;
+          }
+
+          // Supprimer les tâches 'processing' de plus de 2 minutes (probablement bloquées)
+          if (task.status === 'processing' && age > 2 * 60 * 1000) {
+            return false;
+          }
+
+          return true;
+        });
+
+        return validTasks;
       } catch {
         return [];
       }

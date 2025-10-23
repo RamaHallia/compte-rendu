@@ -33,7 +33,7 @@ export const useBackgroundProcessing = (userId: string | undefined) => {
 
       if (error) throw error;
 
-      // Auto-cleanup old completed tasks (older than 5 minutes)
+      // Auto-cleanup old completed/error tasks (older than 5 minutes)
       const now = new Date().getTime();
       const fiveMinutes = 5 * 60 * 1000;
       const validTasks = (data || []).filter((task: BackgroundTask) => {
@@ -46,6 +46,22 @@ export const useBackgroundProcessing = (userId: string | undefined) => {
         // Remove old completed/error tasks
         return age < fiveMinutes;
       });
+
+      // Auto-delete old tasks from database
+      const oldTaskIds = (data || [])
+        .filter((task: BackgroundTask) => {
+          const taskTime = new Date(task.created_at).getTime();
+          const age = now - taskTime;
+          return task.status !== 'processing' && age >= fiveMinutes;
+        })
+        .map((task: BackgroundTask) => task.id);
+
+      if (oldTaskIds.length > 0) {
+        await supabase
+          .from('background_tasks')
+          .delete()
+          .in('id', oldTaskIds);
+      }
 
       setTasks(validTasks);
     } catch (error) {

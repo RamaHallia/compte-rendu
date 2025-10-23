@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Mic, History, LogOut, Settings as SettingsIcon, Upload } from 'lucide-react';
+import { Mic, History, LogOut, Settings as SettingsIcon, Upload, LayoutDashboard } from 'lucide-react';
 import { useAudioRecorder } from './hooks/useAudioRecorder';
 import { useLiveSuggestions } from './hooks/useLiveSuggestions';
 import { RecordingControls } from './components/RecordingControls';
@@ -14,6 +14,7 @@ import { MeetingDetail } from './components/MeetingDetail';
 import { Login } from './components/Login';
 import { LandingPage } from './components/LandingPage';
 import { Settings } from './components/Settings';
+import { Dashboard } from './components/Dashboard';
 import { LiveSuggestions } from './components/LiveSuggestions';
 import { AudioUpload } from './components/AudioUpload';
 import { BackgroundProcessingIndicator } from './components/BackgroundProcessingIndicator';
@@ -66,7 +67,7 @@ const formatTranscriptWithSeparators = (partialTranscripts: string[]): string =>
 };
 
 function App() {
-  const [view, setView] = useState<'landing' | 'auth' | 'record' | 'history' | 'detail' | 'settings' | 'upload'>('landing');
+  const [view, setView] = useState<'landing' | 'auth' | 'record' | 'history' | 'detail' | 'settings' | 'upload' | 'dashboard'>('landing');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
   const [result, setResult] = useState<{ title: string; transcript: string; summary: string; audioUrl?: string | null } | null>(null);
@@ -752,6 +753,17 @@ function App() {
               <span>Historique</span>
             </button>
             <button
+              onClick={() => setView('dashboard')}
+              className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-semibold transition-all text-sm md:text-base whitespace-nowrap ${
+                view === 'dashboard'
+                  ? 'bg-gradient-to-r from-coral-500 to-coral-600 text-white shadow-lg shadow-coral-500/30'
+                  : 'text-cocoa-700 hover:bg-orange-50'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4 md:w-5 md:h-5" />
+              <span>Tableau de bord</span>
+            </button>
+            <button
               onClick={() => setView('upload')}
               className={`flex-1 md:w-full flex items-center justify-center md:justify-start gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-semibold transition-all text-sm md:text-base whitespace-nowrap ${
                 view === 'upload'
@@ -1127,6 +1139,8 @@ function App() {
             />
           ) : view === 'settings' ? (
             <Settings userId={user?.id || ''} />
+          ) : view === 'dashboard' ? (
+            <Dashboard />
           ) : view === 'detail' && selectedMeeting ? (
             <>
             <MeetingDetail meeting={selectedMeeting} onBack={handleBackToHistory} onUpdate={handleMeetingUpdate} />

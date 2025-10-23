@@ -34,13 +34,21 @@ export const useBackgroundProcessing = (userId: string | undefined) => {
       if (error) throw error;
 
       // Auto-cleanup old completed/error tasks (older than 5 minutes)
+      // Also cleanup orphaned processing tasks (older than 10 minutes)
       const now = new Date().getTime();
       const fiveMinutes = 5 * 60 * 1000;
+      const tenMinutes = 10 * 60 * 1000;
+
       const validTasks = (data || []).filter((task: BackgroundTask) => {
         const taskTime = new Date(task.created_at).getTime();
         const age = now - taskTime;
 
-        // Keep processing tasks regardless of age
+        // Remove orphaned processing tasks (stuck > 10 minutes)
+        if (task.status === 'processing' && age >= tenMinutes) {
+          return false;
+        }
+
+        // Keep recent processing tasks
         if (task.status === 'processing') return true;
 
         // Remove old completed/error tasks
@@ -52,7 +60,9 @@ export const useBackgroundProcessing = (userId: string | undefined) => {
         .filter((task: BackgroundTask) => {
           const taskTime = new Date(task.created_at).getTime();
           const age = now - taskTime;
-          return task.status !== 'processing' && age >= fiveMinutes;
+          // Delete non-processing tasks older than 5 minutes OR processing tasks older than 10 minutes
+          return (task.status !== 'processing' && age >= fiveMinutes) ||
+                 (task.status === 'processing' && age >= tenMinutes);
         })
         .map((task: BackgroundTask) => task.id);
 

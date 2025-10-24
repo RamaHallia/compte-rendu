@@ -188,11 +188,12 @@ export const Settings = ({ userId }: SettingsProps) => {
           signature_text: signatureText,
           signature_logo_url: finalLogoUrl,
           email_method: emailMethod,
-          smtp_host: emailMethod === 'smtp' ? smtpHost : null,
-          smtp_port: emailMethod === 'smtp' ? smtpPort : null,
-          smtp_user: emailMethod === 'smtp' ? smtpUser : null,
-          smtp_password: emailMethod === 'smtp' ? smtpPassword : null,
-          smtp_secure: emailMethod === 'smtp' ? smtpSecure : null,
+          // Toujours sauvegarder les paramètres SMTP même si la méthode n'est pas SMTP
+          smtp_host: smtpHost || null,
+          smtp_port: smtpPort || null,
+          smtp_user: smtpUser || null,
+          smtp_password: smtpPassword || null,
+          smtp_secure: smtpSecure,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'user_id'

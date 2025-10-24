@@ -22,14 +22,28 @@ interface GmailMessage {
   raw: string;
 }
 
+// Fonction pour encoder le sujet en RFC 2047 (MIME encoded-word)
+function encodeSubject(subject: string): string {
+  // Vérifier si le sujet contient des caractères non-ASCII
+  if (!/[^\x00-\x7F]/.test(subject)) {
+    return subject;
+  }
+
+  // Encoder en base64 pour les caractères UTF-8
+  const encoder = new TextEncoder();
+  const data = encoder.encode(subject);
+  const base64 = btoa(String.fromCharCode(...data));
+  return `=?UTF-8?B?${base64}?=`;
+}
+
 // Fonction pour créer un message MIME multipart
 function createMimeMessage(to: string, subject: string, html: string, attachments?: EmailRequest['attachments']): string {
   const boundary = `boundary_${Date.now()}`;
   const attachmentBoundary = `attachment_${Date.now()}`;
-  
+
   let message = [
     `To: ${to}`,
-    `Subject: ${subject}`,
+    `Subject: ${encodeSubject(subject)}`,
     'MIME-Version: 1.0',
   ];
 

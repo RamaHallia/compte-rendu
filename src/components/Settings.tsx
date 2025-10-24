@@ -43,11 +43,13 @@ export const Settings = ({ userId }: SettingsProps) => {
     // Écouter les messages de la popup OAuth
     const handleMessage = (event: MessageEvent) => {
       if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+        console.log('✅ Gmail connecté !', event.data.email);
         setGmailConnected(true);
         setGmailEmail(event.data.email);
+        // Recharger les settings pour avoir les dernières données
         loadSettings();
-        alert(`Gmail connecté avec succès ! (${event.data.email})`);
       } else if (event.data.type === 'GMAIL_AUTH_ERROR') {
+        console.error('❌ Erreur Gmail:', event.data.error);
         alert(`Erreur de connexion Gmail : ${event.data.error}`);
       }
     };

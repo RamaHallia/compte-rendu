@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface EmailRequest {
-  clerkToken: string;
+  userId: string;
   to: string;
   subject: string;
   htmlBody: string;
@@ -27,9 +27,9 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { clerkToken, to, subject, htmlBody, attachments }: EmailRequest = await req.json();
+    const { userId, to, subject, htmlBody, attachments }: EmailRequest = await req.json();
 
-    if (!clerkToken || !to || !subject || !htmlBody) {
+    if (!userId || !to || !subject || !htmlBody) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
         {
@@ -39,33 +39,38 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Récupérer le token Gmail OAuth depuis Clerk
-    const clerkResponse = await fetch("https://api.clerk.com/v1/users", {
+    // Récupérer les tokens OAuth depuis l'autre edge function
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    const tokenResponse = await fetch(`${supabaseUrl}/functions/v1/get-gmail-token`, {
+      method: "POST",
       headers: {
-        "Authorization": `Bearer ${clerkToken}`,
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseAnonKey}`,
       },
+      body: JSON.stringify({ userId }),
     });
 
-    if (!clerkResponse.ok) {
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.json();
       return new Response(
-        JSON.stringify({ error: "Failed to authenticate with Clerk" }),
+        JSON.stringify({
+          error: "Failed to retrieve Gmail token",
+          details: errorData,
+        }),
         {
-          status: 401,
+          status: tokenResponse.status,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
     }
 
-    const clerkUser = await clerkResponse.json();
+    const tokenData = await tokenResponse.json();
 
-    // Récupérer le token OAuth pour Gmail depuis les external accounts de Clerk
-    const gmailAccount = clerkUser.external_accounts?.find(
-      (account: any) => account.provider === 'oauth_google' && account.approved_scopes?.includes('https://www.googleapis.com/auth/gmail.send')
-    );
-
-    if (!gmailAccount || !gmailAccount.access_token) {
+    if (!tokenData[0]?.token) {
       return new Response(
-        JSON.stringify({ error: "Gmail not connected or missing permissions" }),
+        JSON.stringify({ error: "Gmail not connected or token unavailable" }),
         {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -73,7 +78,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const gmailAccessToken = gmailAccount.access_token;
+    const gmailAccessToken = tokenData[0].token;
 
     // Créer le message email au format RFC 2822
     const boundary = "boundary_" + Math.random().toString(36).substring(2);

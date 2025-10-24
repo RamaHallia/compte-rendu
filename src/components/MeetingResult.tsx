@@ -36,15 +36,20 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   useEffect(() => {
     const loadSettings = async () => {
       if (!userId) return;
-      
+
       const { data } = await supabase
         .from('user_settings')
-        .select('email_method')
+        .select('email_method, gmail_connected')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (data?.email_method) {
-        setEmailMethod(data.email_method);
+        // Si Gmail est sélectionné mais pas connecté, utiliser local
+        if (data.email_method === 'gmail' && !data.gmail_connected) {
+          setEmailMethod('local');
+        } else {
+          setEmailMethod(data.email_method);
+        }
       }
     };
 

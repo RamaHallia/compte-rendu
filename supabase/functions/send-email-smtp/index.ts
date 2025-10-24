@@ -87,14 +87,14 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Send email with HTML (prioritized over plain text)
+    // Send email with HTML for clickable links but simple formatting
     await client.send({
       from: settings.sender_email || settings.smtp_user,
       to: emailRequest.to,
       cc: emailRequest.cc || [],
       subject: emailRequest.subject,
-      html: emailRequest.htmlBody, // HTML version (preferred)
       content: emailRequest.textBody, // Plain text fallback
+      html: emailRequest.htmlBody, // HTML with clickable links
     });
 
     await client.close();

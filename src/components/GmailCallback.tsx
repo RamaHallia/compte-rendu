@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 
 export const GmailCallback = () => {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -10,21 +9,45 @@ export const GmailCallback = () => {
       try {
         const params = new URLSearchParams(window.location.search);
         const code = params.get('code');
+        const state = params.get('state');
 
         if (!code) {
           throw new Error('Code d\'autorisation manquant');
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          throw new Error('Session non trouvée. Veuillez vous reconnecter.');
+        // Récupérer le token d'accès stocké dans le state
+        let accessToken: string | null = null;
+
+        if (state) {
+          try {
+            const stateData = JSON.parse(atob(state));
+            accessToken = stateData.token;
+          } catch (e) {
+            console.error('Erreur parsing state:', e);
+          }
+        }
+
+        // Si pas de token dans le state, essayer de le récupérer depuis le window.opener
+        if (!accessToken && window.opener) {
+          try {
+            const openerData = (window.opener as any).__gmailAuthToken;
+            if (openerData) {
+              accessToken = openerData;
+            }
+          } catch (e) {
+            console.error('Erreur récupération token depuis opener:', e);
+          }
+        }
+
+        if (!accessToken) {
+          throw new Error('Token d\'authentification introuvable. Veuillez réessayer.');
         }
 
         const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const response = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth-callback`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${session.access_token}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ code }),
@@ -39,6 +62,18 @@ export const GmailCallback = () => {
         setStatus('success');
         setMessage(`Gmail connecté avec succès ! (${result.email})`);
 
+        // Notifier la fenêtre parente
+        if (window.opener) {
+          try {
+            (window.opener as any).postMessage({
+              type: 'GMAIL_AUTH_SUCCESS',
+              email: result.email
+            }, '*');
+          } catch (e) {
+            console.error('Erreur notification opener:', e);
+          }
+        }
+
         setTimeout(() => {
           window.close();
         }, 2000);
@@ -46,6 +81,18 @@ export const GmailCallback = () => {
         console.error('Erreur callback Gmail:', error);
         setStatus('error');
         setMessage(error.message || 'Erreur lors de la connexion Gmail');
+
+        // Notifier la fenêtre parente de l'erreur
+        if (window.opener) {
+          try {
+            (window.opener as any).postMessage({
+              type: 'GMAIL_AUTH_ERROR',
+              error: error.message
+            }, '*');
+          } catch (e) {
+            console.error('Erreur notification opener:', e);
+          }
+        }
       }
     };
 

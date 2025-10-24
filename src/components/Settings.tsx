@@ -39,6 +39,24 @@ export const Settings = ({ userId }: SettingsProps) => {
   useEffect(() => {
     loadSettings();
     loadSubscription();
+
+    // Écouter les messages de la popup OAuth
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+        setGmailConnected(true);
+        setGmailEmail(event.data.email);
+        loadSettings();
+        alert(`Gmail connecté avec succès ! (${event.data.email})`);
+      } else if (event.data.type === 'GMAIL_AUTH_ERROR') {
+        alert(`Erreur de connexion Gmail : ${event.data.error}`);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, [userId]);
 
   const loadSettings = async () => {
@@ -529,11 +547,23 @@ export const Settings = ({ userId }: SettingsProps) => {
                 onClick={async () => {
                   setIsConnectingGmail(true);
                   try {
+                    // Récupérer le token d'accès de la session Supabase
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (!session) {
+                      throw new Error('Session non trouvée');
+                    }
+
+                    // Stocker le token dans une variable globale accessible par la popup
+                    (window as any).__gmailAuthToken = session.access_token;
+
                     const clientId = import.meta.env.VITE_GMAIL_CLIENT_ID;
                     const redirectUri = `${window.location.origin}/gmail-callback`;
                     const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
 
-                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                    // Encoder le token dans le state
+                    const state = btoa(JSON.stringify({ token: session.access_token }));
+
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
 
                     window.open(authUrl, '_blank', 'width=500,height=600');
                   } catch (error) {

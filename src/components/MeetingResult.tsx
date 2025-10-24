@@ -1,5 +1,6 @@
 import { ArrowLeft, Calendar, FileText, Mail, Plus, Trash2, Download, Upload, Copy, FileDown } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useUser } from '@clerk/clerk-react';
 import { supabase, EmailAttachment } from '../lib/supabase';
 import { generatePDFFromHTML } from '../services/pdfGenerator';
 import { EmailComposer } from './EmailComposer';
@@ -27,7 +28,9 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [showEmailComposer, setShowEmailComposer] = useState(false);
   const [emailMethod, setEmailMethod] = useState<'gmail' | 'local' | 'smtp'>('gmail');
+  const [gmailConnected, setGmailConnected] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+  const { user } = useUser();
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -36,15 +39,18 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   useEffect(() => {
     const loadSettings = async () => {
       if (!userId) return;
-      
+
       const { data } = await supabase
         .from('user_settings')
-        .select('email_method')
+        .select('email_method, gmail_connected')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (data?.email_method) {
         setEmailMethod(data.email_method);
+      }
+      if (data?.gmail_connected) {
+        setGmailConnected(data.gmail_connected);
       }
     };
 
@@ -139,31 +145,79 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         setShowSuccessModal(true);
         setShowEmailComposer(false);
       } else if (emailMethod === 'gmail') {
-        // Envoi via Gmail
-        const emailList = emailData.recipients.map(r => r.email).join(',');
-        const ccList = emailData.ccRecipients.map(r => r.email).join(',');
-        
-        let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailList)}`;
-        
-        if (ccList) {
-          gmailUrl += `&cc=${encodeURIComponent(ccList)}`;
-        }
-        
-        gmailUrl += `&su=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}`;
-        
-        if (gmailUrl.length > 8000) {
-          alert('⚠️ Le contenu de l\'email est trop long pour Gmail.\n\nVeuillez utiliser l\'option SMTP dans les paramètres pour envoyer des emails longs.');
-          return;
-        }
-        
-        window.open(gmailUrl, '_blank');
-        setShowEmailComposer(false);
+        // Vérifier si Gmail est connecté via OAuth
+        if (gmailConnected && user) {
+          // Envoi automatique via Gmail API
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            throw new Error('Non authentifié');
+          }
 
-        // Petit délai pour s'assurer que le modal s'affiche après la fermeture du composer
-        setTimeout(() => {
-          setSuccessMessage('Gmail ouvert dans un nouvel onglet. Veuillez finaliser l\'envoi dans Gmail.');
+          // Récupérer le token Clerk
+          const clerkToken = await user.getSessions().then(sessions => {
+            const activeSession = sessions.find(s => s.status === 'active');
+            return activeSession?.getToken();
+          });
+
+          if (!clerkToken) {
+            throw new Error('Token Clerk non disponible');
+          }
+
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const response = await fetch(`${supabaseUrl}/functions/v1/send-email-gmail`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              clerkToken,
+              to: emailData.recipients.map(r => r.email).join(','),
+              subject: emailData.subject,
+              htmlBody: emailData.htmlBody,
+              attachments: emailData.attachments.map(att => ({
+                filename: att.name,
+                content: att.url,
+                mimeType: att.type || 'application/octet-stream'
+              })),
+            }),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Erreur lors de l\'envoi via Gmail API');
+          }
+
+          setSuccessMessage('Email envoyé avec succès via Gmail !');
           setShowSuccessModal(true);
-        }, 100);
+          setShowEmailComposer(false);
+        } else {
+          // Fallback : Ouvrir Gmail dans le navigateur
+          const emailList = emailData.recipients.map(r => r.email).join(',');
+          const ccList = emailData.ccRecipients.map(r => r.email).join(',');
+
+          let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailList)}`;
+
+          if (ccList) {
+            gmailUrl += `&cc=${encodeURIComponent(ccList)}`;
+          }
+
+          gmailUrl += `&su=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}`;
+
+          if (gmailUrl.length > 8000) {
+            alert('⚠️ Le contenu de l\'email est trop long pour Gmail.\n\nVeuillez connecter Gmail OAuth dans les Paramètres pour l\'envoi automatique.');
+            return;
+          }
+
+          window.open(gmailUrl, '_blank');
+          setShowEmailComposer(false);
+
+          setTimeout(() => {
+            setSuccessMessage('Gmail ouvert dans un nouvel onglet. Pour l\'envoi automatique, connectez Gmail dans les Paramètres.');
+            setShowSuccessModal(true);
+          }, 100);
+        }
       } else {
         // Envoi via client local
         const emailList = emailData.recipients.map(r => r.email).join(',');

@@ -217,11 +217,34 @@ export function EmailComposer({
     }
   };
 
-  // Conversion HTML vers texte brut
+  // Conversion HTML vers texte brut avec formatage préservé
   const htmlToPlainText = (html: string): string => {
+    let text = html;
+
+    // Remplacer les balises de fin de bloc par des retours à la ligne
+    text = text.replace(/<\/p>/gi, '\n\n');
+    text = text.replace(/<\/div>/gi, '\n');
+    text = text.replace(/<\/h[1-6]>/gi, '\n\n');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/li>/gi, '\n');
+    text = text.replace(/<\/tr>/gi, '\n');
+    text = text.replace(/<hr[^>]*>/gi, '\n---\n');
+
+    // Remplacer les listes
+    text = text.replace(/<li[^>]*>/gi, '• ');
+    text = text.replace(/<ul[^>]*>/gi, '\n');
+    text = text.replace(/<\/ul>/gi, '\n');
+
+    // Supprimer toutes les autres balises HTML
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+    tmp.innerHTML = text;
+    text = tmp.textContent || tmp.innerText || '';
+
+    // Nettoyer les espaces multiples et les retours à la ligne excessifs
+    text = text.replace(/\n\s*\n\s*\n/g, '\n\n');
+    text = text.replace(/[ \t]+/g, ' ');
+
+    return text.trim();
   };
 
   // Envoi de l'email

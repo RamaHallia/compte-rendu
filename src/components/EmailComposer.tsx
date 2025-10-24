@@ -217,11 +217,56 @@ export function EmailComposer({
     }
   };
 
-  // Conversion HTML vers texte brut
+  // Conversion HTML vers texte brut avec formatage préservé
   const htmlToPlainText = (html: string): string => {
+    let text = html;
+
+    // Remplacer les balises de titres par du texte en MAJUSCULES avec séparateurs
+    text = text.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n$1\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    text = text.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '\n\n▸ $1\n');
+    text = text.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '\n▹ $1\n');
+
+    // Préserver les listes à puces
+    text = text.replace(/<li[^>]*>(.*?)<\/li>/gi, '  • $1\n');
+    text = text.replace(/<\/ul>/gi, '\n');
+
+    // Préserver les liens avec leur URL
+    text = text.replace(/<a[^>]*href=["']([^"']*)["'][^>]*>(.*?)<\/a>/gi, '$2 ($1)');
+
+    // Remplacer les paragraphes par des sauts de ligne
+    text = text.replace(/<\/p>/gi, '\n\n');
+    text = text.replace(/<p[^>]*>/gi, '');
+
+    // Remplacer les <br> par des sauts de ligne
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+
+    // Remplacer les <hr> par des lignes de séparation
+    text = text.replace(/<hr[^>]*>/gi, '\n' + '─'.repeat(60) + '\n');
+
+    // Préserver le gras avec des caractères Unicode
+    text = text.replace(/<strong>(.*?)<\/strong>/gi, (match, p1) => {
+      return p1.split('').map((char: string) => {
+        const code = char.charCodeAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(0x1D5D4 + (code - 65));
+        if (code >= 97 && code <= 122) return String.fromCodePoint(0x1D5EE + (code - 97));
+        if (code >= 48 && code <= 57) return String.fromCodePoint(0x1D7EC + (code - 48));
+        return char;
+      }).join('');
+    });
+
+    // Supprimer toutes les autres balises HTML
+    text = text.replace(/<[^>]*>/g, '');
+
+    // Décoder les entités HTML
     const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+    tmp.innerHTML = text;
+    text = tmp.textContent || tmp.innerText || '';
+
+    // Nettoyer les espaces multiples et les lignes vides excessives
+    text = text.replace(/\n{3,}/g, '\n\n');
+    text = text.trim();
+
+    return text;
   };
 
   // Envoi de l'email

@@ -208,7 +208,9 @@ ${markdownToHtml(summary)}
     htmlBody += `<p>${senderName}</p>`;
   }
   if (signatureText) {
-    htmlBody += `<p style="color: #666;">${signatureText}</p>`;
+    // Préserver les retours à la ligne dans la signature
+    const formattedSignature = signatureText.replace(/\n/g, '<br>');
+    htmlBody += `<p style="color: #666; white-space: pre-line;">${formattedSignature}</p>`;
   }
   if (signatureLogoUrl) {
     htmlBody += `<p><img src="${signatureLogoUrl}" alt="Logo" style="max-width: 150px; height: auto;"></p>`;

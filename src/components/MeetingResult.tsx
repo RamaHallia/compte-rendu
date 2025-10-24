@@ -43,11 +43,15 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         .eq('user_id', userId)
         .maybeSingle();
 
+      console.log('📊 Settings chargés:', data);
+
       if (data?.email_method) {
         // Si Gmail est sélectionné mais pas connecté, utiliser local
         if (data.email_method === 'gmail' && !data.gmail_connected) {
+          console.log('⚠️ Gmail sélectionné mais non connecté, passage en local');
           setEmailMethod('local');
         } else {
+          console.log('✅ Utilisation de:', data.email_method);
           setEmailMethod(data.email_method);
         }
       }
@@ -108,7 +112,9 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
     attachments: EmailAttachment[];
   }) => {
     setIsSendingEmail(true);
-    
+
+    console.log('🔍 Email method actuel:', emailMethod);
+
     try {
       if (emailMethod === 'smtp') {
         // Envoi via SMTP

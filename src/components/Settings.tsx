@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Upload, X, Edit2, Mail, Crown, Zap, CreditCard } from 'lucide-react';
+import { Save, Upload, X, CreditCard as Edit2, Mail, Crown, Zap, CreditCard } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface SettingsProps {

@@ -339,12 +339,12 @@ export function Dashboard() {
               <div className="border-b border-coral-200 pb-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm font-medium text-cocoa-600">Minutes ce mois</span>
-                  <span className="text-sm font-bold text-coral-600">{stats.thisMonthMinutes} min</span>
+                  <span className="text-sm font-bold text-coral-600">{stats.thisMonthMinutes} / {subscription?.monthly_minutes || 600} min</span>
                 </div>
                 <div className="w-full bg-coral-100 rounded-full h-3 shadow-inner">
                   <div
                     className="bg-gradient-to-r from-coral-500 to-sunset-500 h-3 rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${Math.min((stats.thisMonthMinutes / 1000) * 100, 100)}%` }}
+                    style={{ width: `${Math.min((stats.thisMonthMinutes / (subscription?.monthly_minutes || 600)) * 100, 100)}%` }}
                   />
                 </div>
                 <p className="text-xs text-cocoa-500 mt-1">Facturation basée sur l'utilisation</p>
@@ -358,7 +358,7 @@ export function Dashboard() {
                 <div className="w-full bg-sunset-100 rounded-full h-3 shadow-inner">
                   <div
                     className="bg-gradient-to-r from-sunset-500 to-coral-500 h-3 rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${Math.min((stats.thisMonthMeetings / 50) * 100, 100)}%` }}
+                    style={{ width: `${stats.thisMonthMeetings > 0 ? Math.min((stats.thisMonthMeetings / Math.max(stats.thisMonthMeetings, 10)) * 100, 100) : 0}%` }}
                   />
                 </div>
               </div>

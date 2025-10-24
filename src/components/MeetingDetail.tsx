@@ -33,12 +33,20 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
   const [topics, setTopics] = useState<Array<{ id: string; topic: string }>>([]);
   const [isDownloadingAudio, setIsDownloadingAudio] = useState(false);
   const [audioAvailable, setAudioAvailable] = useState<boolean | null>(null);
+  const [initialEmailBody, setInitialEmailBody] = useState<string>('');
 
   useEffect(() => {
     loadSignature();
     loadSuggestionsData();
     checkAudioAvailability();
   }, [meeting.user_id, meeting.id]);
+
+  // Charger le body de l'email quand le composeur est ouvert
+  useEffect(() => {
+    if (showEmailComposer) {
+      prepareInitialEmailBody().then(body => setInitialEmailBody(body));
+    }
+  }, [showEmailComposer, senderName, signatureText, signatureLogoUrl, emailAttachments]);
 
   const checkAudioAvailability = async () => {
     if (!meeting.audio_url) {
@@ -93,7 +101,7 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
   };
 
   // Préparer le body initial de l'email
-  const prepareInitialEmailBody = (): string => {
+  const prepareInitialEmailBody = async (): Promise<string> => {
     const formatDate = (dateString: string) => {
       const date = new Date(dateString);
       return date.toLocaleDateString('fr-FR', {
@@ -111,7 +119,7 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
       return `${minutes}:${secs.toString().padStart(2, '0')}`;
     };
 
-    return generateEmailBody({
+    return await generateEmailBody({
       title: meeting.title,
       date: formatDate(meeting.created_at),
       duration: meeting.duration ? formatDuration(meeting.duration) : undefined,
@@ -956,10 +964,10 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
       </div>
 
       {/* Nouveau composant EmailComposer */}
-      {showEmailComposer && (
+      {showEmailComposer && initialEmailBody && (
         <EmailComposer
           subject={meeting.title}
-          initialBody={prepareInitialEmailBody()}
+          initialBody={initialEmailBody}
           recipients={[{ name: '', email: '' }]}
           ccRecipients={[]}
           bccRecipients={[]}

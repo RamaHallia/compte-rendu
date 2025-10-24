@@ -140,7 +140,27 @@ interface EmailTemplateData {
   signatureLogoUrl?: string;
 }
 
-export const generateEmailBody = (data: EmailTemplateData): string => {
+// Fonction pour convertir une image URL en base64 data URI
+export const imageUrlToDataUri = async (imageUrl: string): Promise<string> => {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      throw new Error('Failed to fetch image');
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error('Error converting image to data URI:', error);
+    return imageUrl; // Fallback to original URL if conversion fails
+  }
+};
+
+export const generateEmailBody = async (data: EmailTemplateData): Promise<string> => {
   const {
     greeting = 'Bonjour',
     title,
@@ -213,7 +233,9 @@ ${markdownToHtml(summary)}
     htmlBody += `<p style="color: #666; white-space: pre-line;">${formattedSignature}</p>`;
   }
   if (signatureLogoUrl) {
-    htmlBody += `<p><img src="${signatureLogoUrl}" alt="Logo" style="max-width: 150px; height: auto;"></p>`;
+    // Convertir l'URL du logo en data URI pour l'intégrer directement dans l'email
+    const logoDataUri = await imageUrlToDataUri(signatureLogoUrl);
+    htmlBody += `<p><img src="${logoDataUri}" alt="Logo" style="max-width: 150px; height: auto; display: block;"></p>`;
   }
 
   return htmlBody;

@@ -156,63 +156,99 @@ export const generateEmailBody = (data: EmailTemplateData): string => {
   } = data;
 
   let htmlBody = `
-<p>${greeting},</p>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compte-rendu de réunion</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 650px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #ffffff;">
+    <p style="margin-bottom: 15px;">${greeting},</p>
 
-<p>J'espère que vous allez bien. Suite à notre réunion, je vous transmets le compte-rendu détaillé avec les points clés abordés et les décisions prises.</p>
+    <p style="margin-bottom: 15px;">J'espère que vous allez bien. Suite à notre réunion, je vous transmets le compte-rendu détaillé avec les points clés abordés et les décisions prises.</p>
 
-<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+    <hr style="border: none; border-top: 2px solid #EF6855; margin: 25px 0;">
 
-<h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px;">Informations de la réunion</h2>
+    <h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px; margin-top: 20px;">Informations de la réunion</h2>
 
-<p><strong>Titre:</strong> ${title}</p>
-<p><strong>Date:</strong> ${date}</p>
-${duration ? `<p><strong>Durée:</strong> ${duration}</p>` : ''}
-${participantName ? `<p><strong>Participant:</strong> ${participantName}</p>` : ''}
-${participantEmail ? `<p><strong>Email:</strong> ${participantEmail}</p>` : ''}
+    <table style="width: 100%; margin-bottom: 20px;">
+      <tr>
+        <td style="padding: 5px 0;"><strong>Titre:</strong></td>
+        <td style="padding: 5px 0;">${title}</td>
+      </tr>
+      <tr>
+        <td style="padding: 5px 0;"><strong>Date:</strong></td>
+        <td style="padding: 5px 0;">${date}</td>
+      </tr>
+      ${duration ? `
+      <tr>
+        <td style="padding: 5px 0;"><strong>Durée:</strong></td>
+        <td style="padding: 5px 0;">${duration}</td>
+      </tr>` : ''}
+      ${participantName ? `
+      <tr>
+        <td style="padding: 5px 0;"><strong>Participant:</strong></td>
+        <td style="padding: 5px 0;">${participantName}</td>
+      </tr>` : ''}
+      ${participantEmail ? `
+      <tr>
+        <td style="padding: 5px 0;"><strong>Email:</strong></td>
+        <td style="padding: 5px 0;">${participantEmail}</td>
+      </tr>` : ''}
+    </table>
 
-<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+    <hr style="border: none; border-top: 2px solid #EF6855; margin: 25px 0;">
 
-<h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px;">Compte-rendu détaillé</h2>
+    <h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px; margin-top: 20px;">Compte-rendu détaillé</h2>
 
-${markdownToHtml(summary)}
+    <div style="margin: 15px 0;">
+      ${markdownToHtml(summary)}
+    </div>
 
-<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+    <hr style="border: none; border-top: 2px solid #EF6855; margin: 25px 0;">
 `;
 
   // Ajouter les pièces jointes si présentes
   if (attachments.length > 0) {
     htmlBody += `
-<h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px;">Documents joints</h2>
-<ul style="list-style-type: none; padding: 0;">
+    <h2 style="color: #EF6855; font-size: 1.3em; margin-bottom: 15px; margin-top: 20px;">Documents joints</h2>
+    <ul style="list-style-type: none; padding: 0; margin: 15px 0;">
 `;
     attachments.forEach(att => {
-      htmlBody += `  <li style="margin-bottom: 8px;">📎 <a href="${att.url}" style="color: #EF6855; text-decoration: none;">${att.name}</a></li>\n`;
+      htmlBody += `      <li style="margin-bottom: 10px; padding: 8px 0;">📎 <a href="${att.url}" style="color: #EF6855; text-decoration: none; font-weight: 500;">${att.name}</a></li>\n`;
     });
-    htmlBody += `</ul>
+    htmlBody += `    </ul>
 
-<hr style="border: none; border-top: 1px solid #ccc; margin: 20px 0;">
+    <hr style="border: none; border-top: 2px solid #EF6855; margin: 25px 0;">
 `;
   }
 
   // Pied de page
   htmlBody += `
-<p>Je reste à votre disposition pour toute question, clarification ou complément d'information concernant ce compte-rendu.</p>
+    <p style="margin: 15px 0;">Je reste à votre disposition pour toute question, clarification ou complément d'information concernant ce compte-rendu.</p>
 
-<p>Excellente continuation à vous,</p>
+    <p style="margin: 15px 0;">Excellente continuation à vous,</p>
 
-<p><strong>Cordialement,</strong></p>
+    <p style="margin: 15px 0;"><strong>Cordialement,</strong></p>
 `;
 
   // Signature
   if (senderName) {
-    htmlBody += `<p>${senderName}</p>`;
+    htmlBody += `    <p style="margin: 8px 0; font-size: 1.05em;">${senderName}</p>\n`;
   }
   if (signatureText) {
-    htmlBody += `<p style="color: #666;">${signatureText}</p>`;
+    htmlBody += `    <p style="margin: 8px 0; color: #666; font-size: 0.95em;">${signatureText}</p>\n`;
   }
   if (signatureLogoUrl) {
-    htmlBody += `<p><img src="${signatureLogoUrl}" alt="Logo" style="max-width: 150px; height: auto;"></p>`;
+    htmlBody += `    <p style="margin: 15px 0 0 0;"><img src="${signatureLogoUrl}" alt="Logo" style="max-width: 150px; height: auto; display: block;"></p>\n`;
   }
+
+  htmlBody += `
+  </div>
+</body>
+</html>`;
 
   return htmlBody;
 };

@@ -65,22 +65,30 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
   const loadSignature = async () => {
     const { data, error } = await supabase
       .from('user_settings')
-      .select('sender_name, signature_text, signature_logo_url, email_method')
+      .select('sender_name, signature_text, signature_logo_url, email_method, gmail_connected')
       .eq('user_id', meeting.user_id)
       .maybeSingle();
 
     if (error) {
-      
+
     }
 
     if (data) {
-      
+
       setSenderName(data.sender_name || '');
       setSignatureText(data.signature_text || '');
       setSignatureLogoUrl(data.signature_logo_url || '');
-      setEmailMethod(data.email_method || 'gmail');
+
+      // Si Gmail est sélectionné mais pas connecté, utiliser local
+      if (data.email_method === 'gmail' && !data.gmail_connected) {
+        console.log('⚠️ Gmail sélectionné mais non connecté, passage en local');
+        setEmailMethod('local');
+      } else {
+        console.log('✅ Utilisation de:', data.email_method);
+        setEmailMethod(data.email_method || 'gmail');
+      }
     } else {
-      
+
     }
   };
 
@@ -130,7 +138,9 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
     attachments: EmailAttachment[];
   }) => {
     setIsSendingEmail(true);
-    
+
+    console.log('🔍 [MeetingDetail] Email method actuel:', emailMethod);
+
     try {
       if (emailMethod === 'smtp') {
         // Envoi via SMTP
@@ -165,24 +175,61 @@ export const MeetingDetail = ({ meeting, onBack, onUpdate }: MeetingDetailProps)
         alert('✅ Email envoyé avec succès !');
         setShowEmailComposer(false);
       } else if (emailMethod === 'gmail') {
-        // Envoi via Gmail
-        const emailList = emailData.recipients.map(r => r.email).join(',');
-        const ccList = emailData.ccRecipients.map(r => r.email).join(',');
-        
-        let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailList)}`;
-        
-        if (ccList) {
-          gmailUrl += `&cc=${encodeURIComponent(ccList)}`;
+        // Envoi via Gmail API
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('Non authentifié');
         }
-        
-        gmailUrl += `&su=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}`;
-        
-        if (gmailUrl.length > 8000) {
-          alert('⚠️ Le contenu de l\'email est trop long pour Gmail.\n\nVeuillez utiliser l\'option SMTP dans les paramètres pour envoyer des emails longs.');
-          return;
+
+        // Convertir les pièces jointes en base64
+        const attachmentsFormatted = await Promise.all(emailData.attachments.map(async (att) => {
+          try {
+            const response = await fetch(att.url);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64String = (reader.result as string).split(',')[1];
+                resolve(base64String);
+              };
+              reader.readAsDataURL(blob);
+            });
+
+            return {
+              filename: att.name,
+              content: base64,
+              contentType: att.type || 'application/octet-stream',
+            };
+          } catch (error) {
+            console.error(`Erreur lors de la conversion de ${att.name}:`, error);
+            return null;
+          }
+        }));
+
+        const validAttachments = attachmentsFormatted.filter(a => a !== null);
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-email-gmail`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: emailData.recipients.map(r => r.email).join(', '),
+            subject: emailData.subject,
+            html: emailData.htmlBody,
+            attachments: validAttachments,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Erreur lors de l\'envoi via Gmail');
         }
-        
-        window.open(gmailUrl, '_blank');
+
+        alert('✅ Email envoyé avec succès via votre compte Gmail !');
         setShowEmailComposer(false);
       } else {
         // Envoi via client local

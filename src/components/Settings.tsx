@@ -250,18 +250,24 @@ export const Settings = ({ userId }: SettingsProps) => {
           Paramètres
         </h2>
 
-        {/* Message de succès */}
+        {/* Message de succès - Modal centré */}
         {showSaveSuccess && (
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 md:p-6 border-2 border-green-200 mb-6 animate-fadeIn">
-            <div className="flex items-start gap-3 md:gap-4">
-              <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg md:text-xl font-bold text-green-900 mb-1 md:mb-2">Paramètres enregistrés avec succès</h3>
-                <p className="text-sm md:text-base text-green-700">Vos paramètres ont été sauvegardés et seront utilisés dans tous vos emails de compte-rendu.</p>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 transform animate-scaleIn">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <h3 className="text-2xl font-bold text-cocoa-900 mb-2">Paramètres sauvegardés !</h3>
+                <p className="text-cocoa-600 mb-6">Vos paramètres ont été enregistrés avec succès et seront utilisés dans tous vos emails.</p>
+                <button
+                  onClick={() => setShowSaveSuccess(false)}
+                  className="px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white rounded-xl font-semibold hover:from-coral-600 hover:to-sunset-600 transition-all shadow-md"
+                >
+                  Fermer
+                </button>
               </div>
             </div>
           </div>

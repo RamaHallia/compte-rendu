@@ -42,6 +42,33 @@ export const Settings = ({ userId }: SettingsProps) => {
     loadSubscription();
   }, [userId]);
 
+  useEffect(() => {
+    if (user) {
+      const gmailAccount = user.externalAccounts?.find(
+        (account) => account.provider === 'oauth_google'
+      );
+
+      if (gmailAccount && !gmailConnected) {
+        supabase
+          .from('user_settings')
+          .upsert({
+            user_id: userId,
+            gmail_connected: true,
+            gmail_email: gmailAccount.emailAddress || '',
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id'
+          })
+          .then(({ error }) => {
+            if (!error) {
+              setGmailConnected(true);
+              setGmailEmail(gmailAccount.emailAddress || '');
+            }
+          });
+      }
+    }
+  }, [user, gmailConnected, userId]);
+
   const loadSettings = async () => {
     const { data, error } = await supabase
       .from('user_settings')
@@ -98,8 +125,21 @@ export const Settings = ({ userId }: SettingsProps) => {
           setTimeout(() => setShowSaveSuccess(false), 5000);
         }
       } else {
-        // Rediriger vers Clerk pour l'authentification OAuth
-        window.location.href = `https://united-impala-2.clerk.accounts.dev/oauth/authorize?client_id=${import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}&redirect_uri=${window.location.origin}/settings&response_type=code&scope=https://www.googleapis.com/auth/gmail.send`;
+        // Utiliser l'API Clerk pour connecter un compte externe
+        try {
+          await user.createExternalAccount({
+            strategy: 'oauth_google',
+            redirectUrl: `${window.location.origin}/settings`,
+            additionalScopes: ['https://www.googleapis.com/auth/gmail.send'],
+          });
+        } catch (oauthError: any) {
+          console.error('OAuth error:', oauthError);
+          if (oauthError.errors?.[0]?.code === 'external_account_exists') {
+            alert('Ce compte Google est déjà connecté');
+          } else {
+            alert('Erreur lors de la connexion à Gmail. Veuillez réessayer.');
+          }
+        }
       }
     } catch (error) {
       console.error('Error connecting Gmail:', error);

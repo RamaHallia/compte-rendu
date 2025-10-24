@@ -23,8 +23,7 @@ export const Settings = ({ userId }: SettingsProps) => {
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(true);
-  const [hasSettings, setHasSettings] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [emailMethod, setEmailMethod] = useState<'gmail' | 'local' | 'smtp'>('gmail');
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState(587);
@@ -58,8 +57,6 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSmtpUser(data.smtp_user || '');
       setSmtpPassword(data.smtp_password || '');
       setSmtpSecure(data.smtp_secure !== false);
-      setHasSettings(true);
-      setIsEditing(false);
     }
   };
 
@@ -206,85 +203,19 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSignatureLogoUrl(finalLogoUrl);
       setLogoPreview(finalLogoUrl);
       setLogoFile(null);
-      setHasSettings(true);
-      setIsEditing(false);
+
+      // Afficher le message de succès
+      setShowSaveSuccess(true);
+      setTimeout(() => setShowSaveSuccess(false), 5000);
     } catch (error) {
-      
+      console.error('Erreur:', error);
       alert('Erreur lors de la sauvegarde des paramètres');
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (!isEditing && hasSettings) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-4 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-cocoa-900 mb-8">
-            Paramètres
-          </h2>
-
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl md:rounded-2xl p-4 md:p-6 border-2 border-green-200 mb-6 md:mb-8">
-            <div className="flex items-start gap-3 md:gap-4">
-              <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center">
-                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg md:text-xl font-bold text-green-900 mb-1 md:mb-2">Signature configurée avec succès</h3>
-                <p className="text-sm md:text-base text-green-700">Vos paramètres de signature ont été sauvegardés et seront utilisés dans tous vos emails de compte-rendu.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg border-2 border-coral-200 p-6">
-            <h3 className="text-xl font-bold text-cocoa-900 mb-6">Récapitulatif de votre signature</h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-cocoa-700 mb-1">Nom de l'expéditeur</label>
-                <p className="text-cocoa-800 font-medium">{senderName || 'Non défini'}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-cocoa-700 mb-1">Email de l'expéditeur</label>
-                <p className="text-cocoa-800 font-medium">{senderEmail || 'Non défini'}</p>
-              </div>
-
-              {signatureLogoUrl && (
-                <div>
-                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">Logo de signature</label>
-                  <img
-                    src={signatureLogoUrl}
-                    alt="Logo de signature"
-                    className="w-32 h-32 object-contain rounded-lg border-2 border-orange-200 bg-white p-2"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-semibold text-cocoa-700 mb-2">Informations de signature</label>
-                <div className="bg-gradient-to-br from-peach-50 to-coral-50 rounded-lg p-4 border-2 border-coral-200">
-                  <pre className="whitespace-pre-wrap text-cocoa-800 font-sans">{signatureText || 'Non défini'}</pre>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white hover:from-coral-600 hover:to-sunset-600 rounded-xl transition-all shadow-lg font-semibold"
-          >
-            <Edit2 className="w-5 h-5" />
-            Modifier la signature
-          </button>
-        </div>
-        </div>
-      </div>
-    );
-  }
+  // Supprimer l'affichage du récapitulatif séparé - tout sera affiché dans le mode édition
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-peach-50 via-white to-coral-50 p-4 md:p-8">
@@ -292,6 +223,23 @@ export const Settings = ({ userId }: SettingsProps) => {
         <h2 className="text-3xl font-bold text-cocoa-900 mb-8">
           Paramètres
         </h2>
+
+        {/* Message de succès */}
+        {showSaveSuccess && (
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 md:p-6 border-2 border-green-200 mb-6 animate-fadeIn">
+            <div className="flex items-start gap-3 md:gap-4">
+              <div className="flex-shrink-0 w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-full flex items-center justify-center">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg md:text-xl font-bold text-green-900 mb-1 md:mb-2">Paramètres enregistrés avec succès</h3>
+                <p className="text-sm md:text-base text-green-700">Vos paramètres ont été sauvegardés et seront utilisés dans tous vos emails de compte-rendu.</p>
+              </div>
+            </div>
+          </div>
+        )}
 
       <div className="space-y-6">
         {/* Section Abonnement */}
@@ -651,21 +599,70 @@ export const Settings = ({ userId }: SettingsProps) => {
           </p>
 
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                Logo de signature (optionnel)
+              </label>
+              <div className="flex items-start gap-4">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img
+                      src={logoPreview}
+                      alt="Aperçu du logo"
+                      className="w-32 h-32 object-contain rounded-lg border-2 border-coral-200 bg-white p-2"
+                    />
+                    <button
+                      onClick={handleRemoveLogo}
+                      className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : null}
+                <label className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-coral-500 to-sunset-500 text-white rounded-xl hover:from-coral-600 hover:to-sunset-600 transition-all cursor-pointer font-semibold shadow-md hover:shadow-lg">
+                    <Upload className="w-5 h-5" />
+                    {logoPreview ? 'Changer le logo' : 'Ajouter un logo'}
+                  </div>
+                </label>
+              </div>
+              <p className="text-xs text-cocoa-600 mt-2">
+                Le logo sera affiché dans votre signature email (formats acceptés : PNG, JPG, SVG)
+              </p>
+            </div>
 
             <div>
               <label className="block text-sm font-semibold text-cocoa-700 mb-2">
-                Informations du destinataire
+                Informations de signature
               </label>
               <textarea
                 value={signatureText}
                 onChange={(e) => setSignatureText(e.target.value)}
-                placeholder="Jean Dupont&#10;Directeur Commercial&#10;Mon Entreprise SA&#10;Tel: +33 1 23 45 67 89&#10;www.exemple.com"
+                placeholder="Jean Dupont&#10;Directeur Commercial&#10;Mon Entreprise SA&#10;Tél : +33 1 23 45 67 89&#10;www.exemple.com"
                 rows={6}
-                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800 resize-none"
+                className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-coral-500 focus:border-coral-500 text-cocoa-800 resize-none font-mono text-sm"
               />
               <p className="text-xs text-cocoa-600 mt-2">
-                Saisissez toutes les informations que vous souhaitez voir apparaître dans votre signature (nom, poste, entreprise, téléphone, site web, etc.)
+                Saisissez toutes les informations que vous souhaitez voir apparaître dans votre signature (nom, poste, entreprise, téléphone, site web, etc.). Les retours à la ligne seront préservés.
               </p>
+
+              {/* Aperçu de la signature */}
+              {signatureText && (
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-cocoa-700 mb-2">
+                    Aperçu de la signature
+                  </label>
+                  <div className="bg-gradient-to-br from-peach-50 to-coral-50 rounded-lg p-4 border-2 border-coral-200">
+                    <pre className="whitespace-pre-wrap text-cocoa-800 font-sans text-sm">{signatureText}</pre>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

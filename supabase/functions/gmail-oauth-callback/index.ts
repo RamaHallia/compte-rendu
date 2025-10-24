@@ -55,10 +55,16 @@ Deno.serve(async (req: Request) => {
 
     const clientId = Deno.env.get('GMAIL_CLIENT_ID');
     const clientSecret = Deno.env.get('GMAIL_CLIENT_SECRET');
-    const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI') || `${supabaseUrl.replace('.supabase.co', '')}/gmail-callback`;
+    const redirectUri = Deno.env.get('GMAIL_REDIRECT_URI');
 
-    if (!clientId || !clientSecret) {
-      throw new Error('Gmail OAuth credentials not configured');
+    console.log('OAuth Config:', {
+      clientId: clientId ? 'Set' : 'Missing',
+      clientSecret: clientSecret ? 'Set' : 'Missing',
+      redirectUri: redirectUri || 'Missing'
+    });
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      throw new Error('Gmail OAuth credentials not configured. Check GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REDIRECT_URI environment variables.');
     }
 
     // Échanger le code contre des tokens

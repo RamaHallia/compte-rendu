@@ -18,6 +18,7 @@ import { Dashboard } from './components/Dashboard';
 import { LiveSuggestions } from './components/LiveSuggestions';
 import { AudioUpload } from './components/AudioUpload';
 import { BackgroundProcessingIndicator } from './components/BackgroundProcessingIndicator';
+import { GmailCallback } from './components/GmailCallback';
 import { supabase, Meeting } from './lib/supabase';
 import { useBackgroundProcessing } from './hooks/useBackgroundProcessing';
 import { transcribeAudio, generateSummary } from './services/transcription';
@@ -67,7 +68,7 @@ const formatTranscriptWithSeparators = (partialTranscripts: string[]): string =>
 };
 
 function App() {
-  const [view, setView] = useState<'landing' | 'auth' | 'record' | 'history' | 'detail' | 'settings' | 'upload' | 'dashboard'>('landing');
+  const [view, setView] = useState<'landing' | 'auth' | 'record' | 'history' | 'detail' | 'settings' | 'upload' | 'dashboard' | 'gmail-callback'>('landing');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState('');
   const [result, setResult] = useState<{ title: string; transcript: string; summary: string; audioUrl?: string | null } | null>(null);
@@ -138,6 +139,9 @@ function App() {
       console.log('⚠️ Vue detail sans réunion, redirection vers history');
       setView('history');
       window.history.replaceState({ view: 'history' }, '', '#history');
+    } else if (window.location.pathname === '/gmail-callback') {
+      console.log('🔄 Page de callback Gmail détectée');
+      setView('gmail-callback');
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -689,6 +693,10 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  if (view === 'gmail-callback') {
+    return <GmailCallback />;
   }
 
   if (view === 'landing') {

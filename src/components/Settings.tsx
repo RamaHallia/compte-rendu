@@ -32,6 +32,9 @@ export const Settings = ({ userId }: SettingsProps) => {
   const [smtpSecure, setSmtpSecure] = useState(true);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'unlimited'>('starter');
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState('');
+  const [isConnectingGmail, setIsConnectingGmail] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -41,7 +44,7 @@ export const Settings = ({ userId }: SettingsProps) => {
   const loadSettings = async () => {
     const { data, error } = await supabase
       .from('user_settings')
-      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure')
+      .select('sender_email, sender_name, signature_text, signature_logo_url, email_method, smtp_host, smtp_port, smtp_user, smtp_password, smtp_secure, gmail_connected, gmail_email')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -57,6 +60,8 @@ export const Settings = ({ userId }: SettingsProps) => {
       setSmtpUser(data.smtp_user || '');
       setSmtpPassword(data.smtp_password || '');
       setSmtpSecure(data.smtp_secure !== false);
+      setGmailConnected(data.gmail_connected || false);
+      setGmailEmail(data.gmail_email || '');
     }
   };
 
@@ -449,11 +454,17 @@ export const Settings = ({ userId }: SettingsProps) => {
                   <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
                     <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#EA4335"/>
                   </svg>
-                  <span className="font-semibold text-cocoa-800">Gmail (dans le navigateur)</span>
+                  <span className="font-semibold text-cocoa-800">Gmail (API OAuth)</span>
                 </div>
                 <p className="text-sm text-cocoa-600 mt-1">
-                  Ouvre Gmail dans votre navigateur pour envoyer l'email
+                  Envoi direct via votre compte Gmail (supporte les emails longs)
                 </p>
+                {gmailConnected && (
+                  <div className="mt-2 flex items-center gap-2 text-xs">
+                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">✓ Connecté</span>
+                    <span className="text-cocoa-600">{gmailEmail}</span>
+                  </div>
+                )}
               </div>
             </label>
 
@@ -502,6 +513,93 @@ export const Settings = ({ userId }: SettingsProps) => {
           </div>
 
           {/* Formulaire de configuration SMTP */}
+          {emailMethod === 'gmail' && !gmailConnected && (
+            <div className="mt-4 p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 space-y-4">
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none">
+                  <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#EA4335"/>
+                </svg>
+                <h4 className="font-bold text-cocoa-900">Connecter votre compte Gmail</h4>
+              </div>
+              <p className="text-sm text-cocoa-700">
+                Pour utiliser l'envoi direct via Gmail, vous devez d'abord connecter votre compte Gmail.
+                Vos emails seront envoyés directement depuis votre compte Gmail sans limite de longueur.
+              </p>
+              <button
+                onClick={async () => {
+                  setIsConnectingGmail(true);
+                  try {
+                    const clientId = import.meta.env.VITE_GMAIL_CLIENT_ID;
+                    const redirectUri = `${window.location.origin}/gmail-callback`;
+                    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
+
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+
+                    window.open(authUrl, '_blank', 'width=500,height=600');
+                  } catch (error) {
+                    console.error('Erreur lors de la connexion Gmail:', error);
+                    alert('Erreur lors de la connexion Gmail');
+                  } finally {
+                    setIsConnectingGmail(false);
+                  }
+                }}
+                disabled={isConnectingGmail}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50"
+              >
+                {isConnectingGmail ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    Connexion...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                      <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="white"/>
+                    </svg>
+                    Connecter mon compte Gmail
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {emailMethod === 'gmail' && gmailConnected && (
+            <div className="mt-4 p-5 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 space-y-3">
+              <div className="flex items-center gap-3">
+                <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <h4 className="font-bold text-cocoa-900">Gmail connecté</h4>
+              </div>
+              <p className="text-sm text-cocoa-700">
+                Votre compte Gmail <strong>{gmailEmail}</strong> est connecté. Vos emails seront envoyés directement via Gmail.
+              </p>
+              <button
+                onClick={async () => {
+                  if (confirm('Voulez-vous vraiment déconnecter votre compte Gmail ?')) {
+                    await supabase
+                      .from('user_settings')
+                      .update({
+                        gmail_connected: false,
+                        gmail_email: null,
+                        gmail_access_token: null,
+                        gmail_refresh_token: null,
+                        gmail_token_expiry: null,
+                      })
+                      .eq('user_id', userId);
+
+                    setGmailConnected(false);
+                    setGmailEmail('');
+                    alert('Compte Gmail déconnecté');
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition-all text-sm"
+              >
+                Déconnecter Gmail
+              </button>
+            </div>
+          )}
+
           {emailMethod === 'smtp' && (
             <div className="mt-4 p-5 bg-gradient-to-br from-peach-50 to-coral-50 rounded-xl border-2 border-coral-200 space-y-4">
               <h4 className="font-bold text-cocoa-900 mb-3 flex items-center gap-2">

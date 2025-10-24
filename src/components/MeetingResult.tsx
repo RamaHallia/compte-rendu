@@ -139,31 +139,63 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
         setShowSuccessModal(true);
         setShowEmailComposer(false);
       } else if (emailMethod === 'gmail') {
-        // Envoi via Gmail
-        const emailList = emailData.recipients.map(r => r.email).join(',');
-        const ccList = emailData.ccRecipients.map(r => r.email).join(',');
-        
-        let gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(emailList)}`;
-        
-        if (ccList) {
-          gmailUrl += `&cc=${encodeURIComponent(ccList)}`;
+        // Envoi via Gmail API
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          throw new Error('Non authentifié');
         }
-        
-        gmailUrl += `&su=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(emailData.textBody)}`;
-        
-        if (gmailUrl.length > 8000) {
-          alert('⚠️ Le contenu de l\'email est trop long pour Gmail.\n\nVeuillez utiliser l\'option SMTP dans les paramètres pour envoyer des emails longs.');
-          return;
-        }
-        
-        window.open(gmailUrl, '_blank');
-        setShowEmailComposer(false);
 
-        // Petit délai pour s'assurer que le modal s'affiche après la fermeture du composer
-        setTimeout(() => {
-          setSuccessMessage('Gmail ouvert dans un nouvel onglet. Veuillez finaliser l\'envoi dans Gmail.');
-          setShowSuccessModal(true);
-        }, 100);
+        // Convertir les pièces jointes en base64
+        const attachmentsFormatted = await Promise.all(emailData.attachments.map(async (att) => {
+          try {
+            const response = await fetch(att.url);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64String = (reader.result as string).split(',')[1];
+                resolve(base64String);
+              };
+              reader.readAsDataURL(blob);
+            });
+
+            return {
+              filename: att.name,
+              content: base64,
+              contentType: att.type || 'application/octet-stream',
+            };
+          } catch (error) {
+            console.error(`Erreur lors de la conversion de ${att.name}:`, error);
+            return null;
+          }
+        }));
+
+        const validAttachments = attachmentsFormatted.filter(a => a !== null);
+
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const response = await fetch(`${supabaseUrl}/functions/v1/send-email-gmail`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: emailData.recipients.map(r => r.email).join(', '),
+            subject: emailData.subject,
+            html: emailData.htmlBody,
+            attachments: validAttachments,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Erreur lors de l\'envoi via Gmail');
+        }
+
+        setSuccessMessage('Email envoyé avec succès via votre compte Gmail !');
+        setShowSuccessModal(true);
+        setShowEmailComposer(false);
       } else {
         // Envoi via client local
         const emailList = emailData.recipients.map(r => r.email).join(',');

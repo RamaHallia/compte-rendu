@@ -1,6 +1,52 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// Fonction pour convertir une image URL en base64 data URI
+async function imageUrlToDataUri(imageUrl: string): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error('Failed to fetch image:', response.status);
+      return imageUrl; // Fallback to original URL
+    }
+
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const mimeType = blob.type || 'image/png';
+
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error('Error converting image to data URI:', error);
+    return imageUrl; // Fallback to original URL
+  }
+}
+
+// Fonction pour remplacer les URLs d'images dans le HTML par des data URIs
+async function embedImagesInHtml(html: string): Promise<string> {
+  // Trouver toutes les balises img avec src="http..."
+  const imgRegex = /<img([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi;
+  const matches = Array.from(html.matchAll(imgRegex));
+
+  let newHtml = html;
+
+  for (const match of matches) {
+    const fullTag = match[0];
+    const beforeSrc = match[1];
+    const srcUrl = match[2];
+    const afterSrc = match[3];
+
+    // Ne convertir que les URLs externes (pas les data URIs déjà présents)
+    if (srcUrl.startsWith('http://') || srcUrl.startsWith('https://')) {
+      const dataUri = await imageUrlToDataUri(srcUrl);
+      const newTag = `<img${beforeSrc}src="${dataUri}"${afterSrc}>`;
+      newHtml = newHtml.replace(fullTag, newTag);
+    }
+  }
+
+  return newHtml;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -159,7 +205,10 @@ Deno.serve(async (req: Request) => {
 
     // Récupérer les paramètres de l'email
     const emailRequest: EmailRequest = await req.json();
-    const { to, subject, html, attachments } = emailRequest;
+    let { to, subject, html, attachments } = emailRequest;
+
+    // Convertir toutes les images dans le HTML en data URIs
+    html = await embedImagesInHtml(html);
 
     if (!to || !subject || !html) {
       throw new Error('Missing required fields: to, subject, html');

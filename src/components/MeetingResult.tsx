@@ -31,7 +31,6 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [initialEmailBody, setInitialEmailBody] = useState<string>('');
 
   // Charger les paramètres utilisateur
   useEffect(() => {
@@ -60,13 +59,6 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
 
     loadSettings();
   }, [userId]);
-
-  // Charger le body de l'email quand le composeur est ouvert
-  useEffect(() => {
-    if (showEmailComposer) {
-      prepareInitialEmailBody().then(body => setInitialEmailBody(body));
-    }
-  }, [showEmailComposer]);
 
   const handleDownloadPDF = async () => {
     try {
@@ -100,8 +92,8 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
   };
 
   // Préparer le body initial de l'email
-  const prepareInitialEmailBody = async (): Promise<string> => {
-    return await generateEmailBody({
+  const prepareInitialEmailBody = (): string => {
+    return generateEmailBody({
       title,
       date: formatDate(),
       summary,
@@ -672,10 +664,10 @@ export const MeetingResult = ({ title, transcript, summary, suggestions = [], us
 
 
       {/* Nouveau composant EmailComposer */}
-      {showEmailComposer && initialEmailBody && (
+      {showEmailComposer && (
         <EmailComposer
           subject={title}
-          initialBody={initialEmailBody}
+          initialBody={prepareInitialEmailBody()}
           recipients={[{ name: '', email: '' }]}
           ccRecipients={[]}
           bccRecipients={[]}

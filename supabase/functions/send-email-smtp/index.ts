@@ -2,6 +2,52 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Fonction pour convertir une image URL en base64 data URI
+async function imageUrlToDataUri(imageUrl: string): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) {
+      console.error('Failed to fetch image:', response.status);
+      return imageUrl; // Fallback to original URL
+    }
+
+    const blob = await response.blob();
+    const arrayBuffer = await blob.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const mimeType = blob.type || 'image/png';
+
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    console.error('Error converting image to data URI:', error);
+    return imageUrl; // Fallback to original URL
+  }
+}
+
+// Fonction pour remplacer les URLs d'images dans le HTML par des data URIs
+async function embedImagesInHtml(html: string): Promise<string> {
+  // Trouver toutes les balises img avec src="http..."
+  const imgRegex = /<img([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi;
+  const matches = Array.from(html.matchAll(imgRegex));
+
+  let newHtml = html;
+
+  for (const match of matches) {
+    const fullTag = match[0];
+    const beforeSrc = match[1];
+    const srcUrl = match[2];
+    const afterSrc = match[3];
+
+    // Ne convertir que les URLs externes (pas les data URIs déjà présents)
+    if (srcUrl.startsWith('http://') || srcUrl.startsWith('https://')) {
+      const dataUri = await imageUrlToDataUri(srcUrl);
+      const newTag = `<img${beforeSrc}src="${dataUri}"${afterSrc}>`;
+      newHtml = newHtml.replace(fullTag, newTag);
+    }
+  }
+
+  return newHtml;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
@@ -47,7 +93,10 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const emailRequest: EmailRequest = await req.json()
+    let emailRequest: EmailRequest = await req.json()
+
+    // Convertir toutes les images dans le HTML en data URIs
+    emailRequest.htmlBody = await embedImagesInHtml(emailRequest.htmlBody)
 
     // Verify userId matches authenticated user
     if (emailRequest.userId !== user.id) {
